@@ -1,0 +1,74 @@
+{
+  "city": "Venice (Historic Center)",
+  "data_sources": [
+    "Catalanotti (2021) IUAV field survey",
+    "Venice Municipality DCC 26/2022",
+    "Venice Yearbook of Tourism Data 2023",
+    "Venice Municipal commercial data (2009 baseline)"
+  ],
+  "shop_composition": {
+    "2009": {
+      "tourist_pct": 45,
+      "resident_pct": 55,
+      "source": "Municipal census (estimated)"
+    },
+    "2017": {
+      "tourist_pct": 74.5,
+      "resident_pct": 25.5,
+      "total": 1715,
+      "source": "Catalanotti (2021) IUAV field survey"
+    },
+    "2022": {
+      "tourist_pct": "80+",
+      "source": "Venice DCC 26/2022 context"
+    }
+  },
+  "population": {
+    "1951": 174808,
+    "1971": 109150,
+    "1991": 76644,
+    "2001": 65695,
+    "2011": 58041,
+    "2015": 54979,
+    "2020": 50685,
+    "2023": 48900
+  },
+  "tourism_arrivals": {
+    "2000": {
+      "arrivals": 2600000,
+      "overnight_stays": 6900000
+    },
+    "2005": {
+      "arrivals": 3000000,
+      "overnight_stays": 8100000
+    },
+    "2010": {
+      "arrivals": 3400000,
+      "overnight_stays": 9200000
+    },
+    "2015": {
+      "arrivals": 4200000,
+      "overnight_stays": 11300000
+    },
+    "2019": {
+      "arrivals": 5800000,
+      "overnight_stays": 13900000
+    },
+    "2020": {
+      "arrivals": 1700000,
+      "overnight_stays": 4200000
+    },
+    "2021": {
+      "arrivals": 2500000,
+      "overnight_stays": 6000000
+    },
+    "2022": {
+      "arrivals": 4600000,
+      "overnight_stays": 11200000
+    },
+    "2023": {
+      "arrivals": 5400000,
+      "overnight_stays": 13100000
+    }
+  }
+}
