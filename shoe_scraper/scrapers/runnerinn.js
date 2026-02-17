@@ -1,87 +1,113 @@
 /**
  * Scraper for RunnerInn (runnerinn.com) – international shipping to UK.
  *
- * Sale URL: https://www.runnerinn.com/running-shoes-road/
- * They include a data-price / data-original-price on product cards
- * which makes extraction easier than regex on text.
+ * RunnerInn is part of the Tradeinn group and runs on a custom React frontend.
+ * Their product cards often include data-* attributes with raw price numbers,
+ * which we prefer over parsing formatted price strings.
  *
- * Currency: EUR (they ship to UK but prices in EUR)
+ * Strategy:
+ *  1. Navigate with Playwright (handles JS rendering + Cloudflare challenges).
+ *  2. Sort by discount (order=discount) so best deals come first.
+ *  3. Extract prices from data attributes where available, fall back to text.
+ *
+ * Currency: EUR (prices shown in EUR; they ship to UK)
+ * URL: https://www.runnerinn.com/running-shoes-road/?order=discount
  */
-import { BaseScraper, politeDelay, parsePrice, calcDiscount } from "./base.js";
+import { BaseScraper } from "./base.js";
 
-const SALE_URL = "https://www.runnerinn.com/running-shoes-road/";
+const BASE_URL = "https://www.runnerinn.com";
+const CATEGORY_URL = `${BASE_URL}/running-shoes-road/`;
 const MAX_PAGES = 5;
 
 export class RunnerInnScraper extends BaseScraper {
   retailerName = "RunnerInn";
-  baseUrl = "https://www.runnerinn.com";
+  baseUrl = BASE_URL;
 
   async getDeals() {
-    const deals = [];
+    return this.withPage(async (page) => {
+      const allDeals = [];
 
-    for (let page = 1; page <= MAX_PAGES; page++) {
-      const $ = await this.getPage(SALE_URL, { page, order: "discount" });
+      for (let pageNum = 1; pageNum <= MAX_PAGES; pageNum++) {
+        const url = `${CATEGORY_URL}?order=discount${pageNum > 1 ? `&page=${pageNum}` : ""}`;
+        console.log(`[RunnerInn] Fetching page ${pageNum}: ${url}`);
+        await this.goto(page, url);
 
-      if (!$) break;
+        // Wait for product cards to render
+        try {
+          await page.waitForSelector(
+            ".product, .ProductCard, [class*='product-card'], [class*='ProductCard'], article",
+            { timeout: 12_000 }
+          );
+        } catch {
+          console.log(`[RunnerInn] No product cards on page ${pageNum}, stopping.`);
+          break;
+        }
 
-      const cards = $("div.product-card, div.ProductCard, article.product, li.product");
+        const deals = await page.$$eval(
+          ".product, .ProductCard, [class*='product-card'], [class*='ProductCard'], article",
+          (cards, minDiscount) => {
+            const parseP = (t) => {
+              if (!t) return null;
+              const m = String(t).replace(/[€£$\s,]/g, "").match(/\d+\.?\d*/);
+              return m ? parseFloat(m[0]) : null;
+            };
 
-      if (cards.length === 0) {
-        console.log(`[RunnerInn] No cards on page ${page}, stopping.`);
-        break;
+            const results = [];
+            for (const card of cards) {
+              const linkEl = card.querySelector("a[href]");
+              if (!linkEl) continue;
+
+              const name = (
+                card.querySelector(".product-name, .product-title, h2, h3, [class*='name'], [class*='Name']")?.textContent || ""
+              ).trim();
+              if (!name) continue;
+
+              // Prefer data attributes (raw numeric values) over formatted text
+              const rawOriginal =
+                card.querySelector("[data-original-price]")?.dataset?.originalPrice ||
+                card.querySelector("[data-regular-price]")?.dataset?.regularPrice;
+              const rawSale =
+                card.querySelector("[data-price]")?.dataset?.price ||
+                card.querySelector("[data-sale-price]")?.dataset?.salePrice;
+
+              let original = rawOriginal ? parseFloat(rawOriginal) : null;
+              let sale = rawSale ? parseFloat(rawSale) : null;
+
+              // Text fallbacks
+              if (!original)
+                original = parseP(card.querySelector(".original-price, .old-price, del, s, [class*='old'], [class*='original']")?.textContent);
+              if (!sale)
+                sale = parseP(card.querySelector(".current-price, .sale-price, .special-price, ins, [class*='current'], [class*='special']")?.textContent);
+
+              if (!original || !sale || sale >= original) continue;
+
+              const discount = parseFloat(((1 - sale / original) * 100).toFixed(1));
+              if (discount < minDiscount) continue;
+
+              const img =
+                card.querySelector("img[data-src]")?.dataset?.src ||
+                card.querySelector("img")?.src ||
+                null;
+
+              const brand = card.querySelector("[class*='brand'], .brand")?.textContent?.trim() || null;
+
+              results.push({ name, url: linkEl.href, originalPrice: original, salePrice: sale, discountPct: discount, imageUrl: img, brand });
+            }
+            return results;
+          },
+          this.minDiscount
+        );
+
+        deals.forEach((d) =>
+          allDeals.push({ retailer: this.retailerName, currency: "EUR", ...d })
+        );
+        console.log(`[RunnerInn] Page ${pageNum}: ${deals.length} deals`);
+
+        if (deals.length === 0) break;
+        await this.politeDelay();
       }
 
-      cards.each((_, el) => {
-        const deal = this._parseCard($, el);
-        if (deal) deals.push(deal);
-      });
-
-      console.log(`[RunnerInn] Page ${page}: ${deals.length} deals so far`);
-      await politeDelay();
-    }
-
-    return deals;
-  }
-
-  _parseCard($, el) {
-    try {
-      const name = $(el).find(".product-name, .product-title, h2, h3, [class*='Name']").first().text().trim();
-      const href = $(el).find("a[href]").first().attr("href");
-      const url = href ? (href.startsWith("http") ? href : this.baseUrl + href) : null;
-
-      // RunnerInn sometimes stores prices in data attributes – try those first
-      const originalEl = $(el).find("[data-original-price], [data-regular-price]").first();
-      const saleEl = $(el).find("[data-price], [data-sale-price]").first();
-
-      let originalPrice = parseFloat(originalEl.attr("data-original-price") || originalEl.attr("data-regular-price")) || null;
-      let salePrice = parseFloat(saleEl.attr("data-price") || saleEl.attr("data-sale-price")) || null;
-
-      // Fallback to text-based parsing
-      if (!originalPrice) {
-        originalPrice = parsePrice($(el).find(".original-price, .old-price, del, s, [class*='old'], [class*='original']").first().text());
-      }
-      if (!salePrice) {
-        salePrice = parsePrice($(el).find(".current-price, .sale-price, .special-price, ins, [class*='current'], [class*='special']").first().text());
-      }
-
-      if (!name || !url || !originalPrice || !salePrice) return null;
-      if (salePrice >= originalPrice) return null;
-
-      const discountPct = calcDiscount(originalPrice, salePrice);
-      if (discountPct < this.minDiscount) return null;
-
-      // They sometimes show a badge with discount % – we use our own calculation
-      const imageUrl =
-        $(el).find("img").first().attr("data-src") ||
-        $(el).find("img").first().attr("src") ||
-        null;
-
-      const brand = $(el).find("[class*='brand'], .brand").first().text().trim() || null;
-
-      return { retailer: this.retailerName, name, url, originalPrice, salePrice, discountPct, currency: "EUR", brand, imageUrl };
-    } catch (err) {
-      console.debug(`[RunnerInn] Card parse error: ${err.message}`);
-      return null;
-    }
+      return allDeals;
+    });
   }
 }

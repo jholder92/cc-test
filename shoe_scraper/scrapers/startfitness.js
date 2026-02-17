@@ -1,75 +1,110 @@
 /**
  * Scraper for Start Fitness (startfitness.co.uk)
  *
- * Sale page: https://www.startfitness.co.uk/sale/running-shoes/road-running-shoes/
+ * Strategy:
+ *  1. Navigate to their road running sale page with Playwright.
+ *  2. Start Fitness runs on a Magento-style platform – product cards are
+ *     server-rendered so the DOM contains prices once the page loads.
+ *  3. Use page.$$eval() on the live DOM to extract discounted products.
+ *  4. Paginate via URL query param.
  *
- * If selectors break: inspect a product card on the sale page to find updated class names.
+ * Sale URL: https://www.startfitness.co.uk/running/road-running-shoes/?on_sale=1
  */
-import { BaseScraper, politeDelay, parsePrice, calcDiscount } from "./base.js";
+import { BaseScraper } from "./base.js";
 
-const SALE_URL = "https://www.startfitness.co.uk/sale/running-shoes/road-running-shoes/";
+const BASE_URL = "https://www.startfitness.co.uk";
+const SALE_URL = `${BASE_URL}/running/road-running-shoes/`;
 const MAX_PAGES = 5;
 
 export class StartFitnessScraper extends BaseScraper {
   retailerName = "StartFitness";
-  baseUrl = "https://www.startfitness.co.uk";
+  baseUrl = BASE_URL;
 
   async getDeals() {
-    const deals = [];
+    return this.withPage(async (page) => {
+      const allDeals = [];
 
-    for (let page = 1; page <= MAX_PAGES; page++) {
-      const $ = await this.getPage(SALE_URL, { page });
+      for (let pageNum = 1; pageNum <= MAX_PAGES; pageNum++) {
+        // on_sale=1 filters to sale items; p=N paginates
+        const url = `${SALE_URL}?on_sale=1${pageNum > 1 ? `&p=${pageNum}` : ""}`;
+        console.log(`[StartFitness] Fetching page ${pageNum}: ${url}`);
+        await this.goto(page, url);
 
-      if (!$) break;
+        // Wait for product cards
+        try {
+          await page.waitForSelector(
+            ".product-item, .product-tile, [class*='ProductCard'], li.item.product",
+            { timeout: 10_000 }
+          );
+        } catch {
+          console.log(`[StartFitness] No products on page ${pageNum}, stopping.`);
+          break;
+        }
 
-      const cards = $("div.product-item, li.product, div[class*='ProductItem'], div[class*='product-tile']");
+        const deals = await page.$$eval(
+          ".product-item, .product-tile, [class*='ProductCard'], li.item.product",
+          (cards, minDiscount) => {
+            const results = [];
+            for (const card of cards) {
+              const linkEl = card.querySelector("a[href]");
+              if (!linkEl) continue;
 
-      if (cards.length === 0) {
-        console.log(`[StartFitness] No cards on page ${page}, stopping.`);
-        break;
+              const name = (
+                card.querySelector(".product-item-name, .product-name, strong.product, h2, h3")?.textContent || ""
+              ).trim();
+              if (!name) continue;
+
+              const parseP = (t) => {
+                if (!t) return null;
+                const m = t.replace(/[£€$\s,]/g, "").match(/\d+\.?\d*/);
+                return m ? parseFloat(m[0]) : null;
+              };
+
+              // Start Fitness shows the old price as a strikethrough
+              const oldEl = card.querySelector(".old-price, .was-price, del, s, [class*='old'], [class*='was']");
+              const nowEl = card.querySelector(".special-price, .price--special, [class*='special'], [class*='sale'], ins");
+              const mainEl = card.querySelector(".price-box .price, .product-price, [class*='price']");
+
+              const original = parseP(oldEl?.textContent);
+              const sale = parseP(nowEl?.textContent) ?? parseP(mainEl?.textContent);
+
+              if (!original || !sale || sale >= original) continue;
+
+              const discount = parseFloat(((1 - sale / original) * 100).toFixed(1));
+              if (discount < minDiscount) continue;
+
+              const img =
+                card.querySelector("img[data-src]")?.dataset?.src ||
+                card.querySelector("img")?.src ||
+                null;
+
+              const brand = card.querySelector("[class*='brand'], .manufacturer")?.textContent?.trim() || null;
+
+              results.push({
+                name,
+                url: linkEl.href,
+                originalPrice: original,
+                salePrice: sale,
+                discountPct: discount,
+                imageUrl: img,
+                brand,
+              });
+            }
+            return results;
+          },
+          this.minDiscount
+        );
+
+        deals.forEach((d) =>
+          allDeals.push({ retailer: this.retailerName, currency: "GBP", ...d })
+        );
+        console.log(`[StartFitness] Page ${pageNum}: ${deals.length} deals`);
+
+        if (deals.length === 0) break;
+        await this.politeDelay();
       }
 
-      cards.each((_, el) => {
-        const deal = this._parseCard($, el);
-        if (deal) deals.push(deal);
-      });
-
-      console.log(`[StartFitness] Page ${page}: ${deals.length} deals so far`);
-      await politeDelay();
-    }
-
-    return deals;
-  }
-
-  _parseCard($, el) {
-    try {
-      const name = $(el).find(".product-title, .product-name, h2, h3, [itemprop='name']").first().text().trim();
-      const href = $(el).find("a[href]").first().attr("href");
-      const url = href ? (href.startsWith("http") ? href : this.baseUrl + href) : null;
-
-      const originalText = $(el).find(".original-price, .was-price, del, s, [class*='was'], [class*='original']").first().text();
-      const saleText = $(el).find(".special-price, .sale-price, .now-price, ins, [class*='sale'], [class*='special'], [class*='now']").first().text();
-
-      const originalPrice = parsePrice(originalText);
-      const salePrice = parsePrice(saleText);
-
-      if (!name || !url || !originalPrice || !salePrice) return null;
-      if (salePrice >= originalPrice) return null;
-
-      const discountPct = calcDiscount(originalPrice, salePrice);
-      if (discountPct < this.minDiscount) return null;
-
-      const imageUrl =
-        $(el).find("img").first().attr("data-src") ||
-        $(el).find("img").first().attr("src") ||
-        null;
-
-      const brand = $(el).find("[class*='brand']").first().text().trim() || null;
-
-      return { retailer: this.retailerName, name, url, originalPrice, salePrice, discountPct, currency: "GBP", brand, imageUrl };
-    } catch (err) {
-      console.debug(`[StartFitness] Card parse error: ${err.message}`);
-      return null;
-    }
+      return allDeals;
+    });
   }
 }
