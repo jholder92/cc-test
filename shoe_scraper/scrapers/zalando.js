@@ -1,137 +1,209 @@
 /**
  * Scraper for Zalando UK (zalando.co.uk)
  *
- * Zalando renders products via React/Next.js, so the HTML in the initial
- * page response contains a JSON payload in a <script id="z-vegas-pdp-props">
- * or similar tag. We extract that JSON rather than parsing rendered HTML.
+ * Strategy:
+ *  1. Navigate with Playwright to the sale page for men's running shoes.
+ *  2. Zalando is a React SPA – intercept their catalog API response (JSON)
+ *     before it hits the DOM. This is more reliable than CSS selectors.
+ *  3. Fall back to extracting application/ld+json structured data from the page.
+ *  4. Fall back to DOM scraping of rendered product cards.
  *
- * Sale URL: https://www.zalando.co.uk/mens-running-shoes/?q=road+running&order=popularity&sale=true
- *
- * ⚠️  Zalando heavily rate-limits scrapers. If you get 429 responses, increase
- *     the politeDelay min/max or add a proxy. The selectors here target the
- *     structured data they embed in the page.
+ * ⚠️  Zalando detects bots. Use longer delays. If you get blocked, try running
+ *     headless: false so a real browser window opens (less suspicious).
  */
-import { BaseScraper, politeDelay, parsePrice, calcDiscount } from "./base.js";
+import { BaseScraper } from "./base.js";
 
-const SALE_URL = "https://www.zalando.co.uk/mens-running-shoes/";
-const MAX_PAGES = 3; // Zalando pagination uses offset
+const BASE_URL = "https://www.zalando.co.uk";
+const SALE_URL = `${BASE_URL}/mens-running-shoes/?sale=true&q=road+running`;
+const MAX_PAGES = 3;
+const PAGE_SIZE = 24;
 
 export class ZalandoScraper extends BaseScraper {
   retailerName = "Zalando";
-  baseUrl = "https://www.zalando.co.uk";
+  baseUrl = BASE_URL;
 
   async getDeals() {
-    const deals = [];
+    return this.withPage(async (page) => {
+      const allDeals = [];
 
-    for (let page = 0; page < MAX_PAGES; page++) {
-      const offset = page * 24;
-      const $ = await this.getPage(SALE_URL, {
-        "q": "road running",
-        "order": "sale",
-        "sale": "true",
-        "offset": offset,
+      // ── Intercept Zalando's catalog API calls ───────────────────────────────
+      // Zalando fetches products via a GraphQL or REST endpoint – we capture it.
+      const interceptedProducts = [];
+      await page.route("**/*catalog*", async (route) => {
+        const response = await route.fetch();
+        try {
+          const json = await response.json();
+          const products = this._extractFromApiResponse(json);
+          interceptedProducts.push(...products);
+        } catch {
+          // Not a JSON response or not a catalog endpoint
+        }
+        await route.fulfill({ response });
       });
 
-      if (!$) break;
+      for (let pageNum = 1; pageNum <= MAX_PAGES; pageNum++) {
+        const offset = (pageNum - 1) * PAGE_SIZE;
+        const url = `${SALE_URL}&offset=${offset}`;
+        console.log(`[Zalando] Fetching page ${pageNum}: ${url}`);
 
-      // Try to extract embedded JSON (Zalando often embeds a catalog in a script tag)
-      const jsonDeals = this._extractJsonDeals($);
-      if (jsonDeals.length > 0) {
-        deals.push(...jsonDeals);
-      } else {
-        // Fall back to HTML parsing
-        const cards = $("article[class*='product'], div[class*='ProductCard'], div[class*='product-card']");
+        interceptedProducts.length = 0; // reset capture buffer
+        await this.goto(page, url);
 
-        if (cards.length === 0) {
-          console.log(`[Zalando] No cards on page ${page + 1}, stopping.`);
-          break;
+        // Give JS time to fire API requests
+        await this.delay(3000);
+
+        if (interceptedProducts.length > 0) {
+          // Use intercepted API data
+          const deals = interceptedProducts
+            .filter((p) => p.discountPct >= this.minDiscount)
+            .map((p) => ({ retailer: this.retailerName, currency: "GBP", ...p }));
+          allDeals.push(...deals);
+          console.log(`[Zalando] Page ${pageNum}: ${deals.length} deals from API intercept`);
+        } else {
+          // ── Fallback 1: application/ld+json embedded in page ──────────────
+          const ldDeals = await this._extractLdJson(page);
+          if (ldDeals.length > 0) {
+            allDeals.push(...ldDeals);
+            console.log(`[Zalando] Page ${pageNum}: ${ldDeals.length} deals from ld+json`);
+          } else {
+            // ── Fallback 2: DOM scraping of rendered cards ─────────────────
+            const domDeals = await this._scrapeDom(page);
+            allDeals.push(...domDeals);
+            console.log(`[Zalando] Page ${pageNum}: ${domDeals.length} deals from DOM`);
+            if (domDeals.length === 0) break;
+          }
         }
 
-        cards.each((_, el) => {
-          const deal = this._parseCard($, el);
-          if (deal) deals.push(deal);
-        });
+        // Zalando rate-limits aggressively – long delay between pages
+        await this.politeDelay(4000, 7000);
       }
 
-      console.log(`[Zalando] Page ${page + 1}: ${deals.length} deals so far`);
-      // Zalando is strict – use a longer delay
-      await politeDelay(3000, 6000);
-    }
-
-    return deals;
+      return allDeals;
+    });
   }
 
-  /** Try to pull deals from the embedded JSON Zalando injects into the page */
-  _extractJsonDeals($) {
+  _extractFromApiResponse(json) {
+    const results = [];
+    try {
+      // Zalando's catalog API returns entities with price ranges
+      const articles = json?.articles ?? json?.products ?? json?.data?.articles ?? [];
+      for (const a of articles) {
+        const name = a.name || a.displayName;
+        if (!name) continue;
+
+        const priceInfo = a.price ?? a.displayPrice ?? {};
+        const original = parseFloat(priceInfo.original?.value ?? priceInfo.rrp?.value ?? 0);
+        const sale = parseFloat(priceInfo.promotional?.value ?? priceInfo.current?.value ?? priceInfo.value ?? 0);
+
+        if (!original || !sale || sale >= original) continue;
+
+        const discountPct = this.calcDiscount(original, sale);
+        if (discountPct < this.minDiscount) continue;
+
+        results.push({
+          name,
+          url: a.uri ? `${this.baseUrl}${a.uri}` : (a.url || ""),
+          originalPrice: original,
+          salePrice: sale,
+          discountPct,
+          brand: a.brand?.name ?? null,
+          imageUrl: a.media?.[0]?.uri ?? a.image ?? null,
+        });
+      }
+    } catch {
+      // Unexpected API shape – handled by fallbacks
+    }
+    return results;
+  }
+
+  async _extractLdJson(page) {
     const deals = [];
     try {
-      // Zalando embeds catalog data in various <script> tags
-      $("script[type='application/ld+json']").each((_, el) => {
+      const jsonBlocks = await page.$$eval(
+        'script[type="application/ld+json"]',
+        (els) => els.map((el) => el.textContent)
+      );
+      for (const block of jsonBlocks) {
         try {
-          const json = JSON.parse($(el).html());
+          const json = JSON.parse(block);
           if (json["@type"] === "ItemList" && Array.isArray(json.itemListElement)) {
-            json.itemListElement.forEach((item) => {
-              if (!item.offers) return;
+            for (const item of json.itemListElement) {
               const offer = Array.isArray(item.offers) ? item.offers[0] : item.offers;
-              const salePrice = offer.price ? parseFloat(offer.price) : null;
-              // LD+JSON often doesn't include the was-price; skip if we can't compute discount
-              if (!salePrice) return;
-
-              // Zalando sometimes includes a highPrice for the original
-              const originalPrice = offer.highPrice ? parseFloat(offer.highPrice) : null;
-              if (!originalPrice || salePrice >= originalPrice) return;
-
-              const discountPct = calcDiscount(originalPrice, salePrice);
-              if (discountPct < this.minDiscount) return;
-
+              if (!offer) continue;
+              const sale = parseFloat(offer.price);
+              const original = parseFloat(offer.highPrice ?? 0);
+              if (!original || !sale || sale >= original) continue;
+              const discountPct = this.calcDiscount(original, sale);
+              if (discountPct < this.minDiscount) continue;
               deals.push({
                 retailer: this.retailerName,
                 name: item.name || "Unknown",
                 url: item.url || "",
-                originalPrice,
-                salePrice,
+                originalPrice: original,
+                salePrice: sale,
                 discountPct,
                 currency: offer.priceCurrency || "GBP",
-                brand: item.brand?.name || null,
-                imageUrl: item.image || null,
+                brand: item.brand?.name ?? null,
+                imageUrl: item.image ?? null,
               });
-            });
+            }
           }
-        } catch (_) {
-          // JSON parse failed for this script tag, skip
+        } catch {
+          // skip malformed block
         }
-      });
-    } catch (err) {
-      console.debug(`[Zalando] JSON extraction error: ${err.message}`);
+      }
+    } catch {
+      // skip
     }
     return deals;
   }
 
-  _parseCard($, el) {
+  async _scrapeDom(page) {
     try {
-      const name = $(el).find("[class*='name'], [class*='Name'], h3, h2").first().text().trim();
-      const href = $(el).find("a[href]").first().attr("href");
-      const url = href ? (href.startsWith("http") ? href : this.baseUrl + href) : null;
-
-      const originalText = $(el).find("[class*='originalPrice'], [class*='crossed'], del, s").first().text();
-      const saleText = $(el).find("[class*='promotionalPrice'], [class*='sale'], [class*='discount']").first().text();
-
-      const originalPrice = parsePrice(originalText);
-      const salePrice = parsePrice(saleText);
-
-      if (!name || !url || !originalPrice || !salePrice) return null;
-      if (salePrice >= originalPrice) return null;
-
-      const discountPct = calcDiscount(originalPrice, salePrice);
-      if (discountPct < this.minDiscount) return null;
-
-      const imageUrl = $(el).find("img").first().attr("src") || null;
-      const brand = $(el).find("[class*='brand'], [class*='Brand']").first().text().trim() || null;
-
-      return { retailer: this.retailerName, name, url, originalPrice, salePrice, discountPct, currency: "GBP", brand, imageUrl };
-    } catch (err) {
-      console.debug(`[Zalando] Card parse error: ${err.message}`);
-      return null;
+      await page.waitForSelector(
+        'article[class*="product"], [class*="ProductCard"], [data-testid*="product"]',
+        { timeout: 8_000 }
+      );
+    } catch {
+      return [];
     }
+
+    return page.$$eval(
+      'article[class*="product"], [class*="ProductCard"], [data-testid*="product"]',
+      (cards, minDiscount) => {
+        const results = [];
+        for (const card of cards) {
+          const linkEl = card.querySelector("a[href]");
+          const name = card.querySelector("[class*='name'], [class*='Name'], h3, h2")?.textContent?.trim();
+          if (!name || !linkEl) continue;
+
+          const parseP = (t) => {
+            if (!t) return null;
+            const m = t.replace(/[£€$\s,]/g, "").match(/\d+\.?\d*/);
+            return m ? parseFloat(m[0]) : null;
+          };
+
+          const original = parseP(card.querySelector("[class*='originalPrice'], [class*='crossed'], del, s")?.textContent);
+          const sale = parseP(card.querySelector("[class*='promotionalPrice'], [class*='sale'], [class*='red']")?.textContent);
+
+          if (!original || !sale || sale >= original) continue;
+          const discount = parseFloat(((1 - sale / original) * 100).toFixed(1));
+          if (discount < minDiscount) continue;
+
+          results.push({
+            name,
+            url: linkEl.href,
+            originalPrice: original,
+            salePrice: sale,
+            discountPct: discount,
+            currency: "GBP",
+            brand: card.querySelector("[class*='brand'], [class*='Brand']")?.textContent?.trim() ?? null,
+            imageUrl: card.querySelector("img")?.src ?? null,
+          });
+        }
+        return results;
+      },
+      this.minDiscount
+    );
   }
 }
