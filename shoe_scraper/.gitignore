@@ -1,0 +1,3 @@
+node_modules/
+deals/*.json
+deals/*.txt
