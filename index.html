@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Central Estates — Property Tracker</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f0f2f5;
+      color: #2d2d2d;
+      font-size: 14px;
+    }
+
+    header {
+      background: #1a1a2e;
+      color: white;
+      padding: 0.85rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    header h1 { font-size: 1.1rem; font-weight: 600; letter-spacing: 0.3px; }
+    header .sub { font-size: 0.78rem; opacity: 0.55; margin-top: 2px; }
+    .clear-btn {
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: white;
+      padding: 0.3rem 0.75rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.78rem;
+    }
+    .clear-btn:hover { background: rgba(255,255,255,0.2); }
+
+    .page { max-width: 1440px; margin: 0 auto; padding: 1rem; }
+
+    /* ── Stats row ── */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    @media (max-width: 700px) { .stats-row { grid-template-columns: repeat(2, 1fr); } }
+    .stat {
+      background: white;
+      border-radius: 8px;
+      padding: 0.9rem 1.1rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+    .stat .val { font-size: 1.6rem; font-weight: 700; color: #1a1a2e; line-height: 1; }
+    .stat .lbl { font-size: 0.73rem; color: #888; margin-top: 0.3rem; text-transform: uppercase; letter-spacing: 0.4px; }
+
+    /* ── Two-col layout ── */
+    .two-col {
+      display: grid;
+      grid-template-columns: 420px 1fr;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    @media (max-width: 960px) { .two-col { grid-template-columns: 1fr; } }
+
+    /* ── Cards ── */
+    .card {
+      background: white;
+      border-radius: 8px;
+      padding: 1.1rem 1.2rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+    .card h2 {
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: #888;
+      margin-bottom: 0.8rem;
+    }
+
+    /* ── Email input ── */
+    textarea {
+      width: 100%;
+      height: 220px;
+      border: 1.5px solid #e0e0e0;
+      border-radius: 6px;
+      padding: 0.7rem 0.85rem;
+      font-size: 0.8rem;
+      font-family: monospace;
+      resize: vertical;
+      outline: none;
+      line-height: 1.5;
+      color: #333;
+    }
+    textarea:focus { border-color: #4a7fcb; }
+    textarea::placeholder { color: #bbb; }
+
+    .parse-actions { display: flex; gap: 0.5rem; margin-top: 0.65rem; align-items: center; }
+
+    .btn {
+      padding: 0.45rem 1rem;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 500;
+      transition: filter 0.15s;
+    }
+    .btn:hover { filter: brightness(0.9); }
+    .btn-primary { background: #4a7fcb; color: white; }
+    .btn-ghost { background: #f0f0f0; color: #555; }
+    .btn-sm { padding: 0.3rem 0.65rem; font-size: 0.78rem; }
+
+    .parse-summary {
+      margin-top: 0.65rem;
+      background: #f7f9ff;
+      border: 1.5px solid #d5e2f8;
+      border-radius: 6px;
+      padding: 0.6rem 0.85rem;
+      font-size: 0.82rem;
+      display: none;
+    }
+    .parse-summary .ps-row { display: flex; justify-content: space-between; margin-bottom: 0.25rem; }
+    .parse-summary .ps-row:last-child { margin-bottom: 0; }
+    .parse-summary .ps-label { color: #666; }
+    .parse-summary .ps-val { font-weight: 600; color: #1a1a2e; }
+    .parse-summary .ps-filtered { color: #e53935; }
+    .ps-add-btn { margin-top: 0.6rem; width: 100%; }
+
+    /* ── Legend ── */
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem 1rem;
+      margin-top: 0.65rem;
+      font-size: 0.75rem;
+      color: #666;
+    }
+    .legend-item { display: flex; align-items: center; gap: 0.3rem; }
+    .dot {
+      width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+    }
+
+    /* ── Map ── */
+    #map { height: 100%; min-height: 380px; border-radius: 6px; }
+
+    /* ── Table ── */
+    .table-card { overflow: hidden; }
+    .table-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.8rem;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+    .filters { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+    .filters select {
+      border: 1.5px solid #e0e0e0;
+      border-radius: 5px;
+      padding: 0.3rem 0.55rem;
+      font-size: 0.8rem;
+      outline: none;
+      background: white;
+      color: #333;
+    }
+
+    .table-wrap { overflow-x: auto; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.83rem;
+    }
+    th {
+      text-align: left;
+      padding: 0.5rem 0.7rem;
+      background: #f7f7f7;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      color: #777;
+      border-bottom: 2px solid #ebebeb;
+      white-space: nowrap;
+    }
+    td {
+      padding: 0.55rem 0.7rem;
+      border-bottom: 1px solid #f0f0f0;
+      vertical-align: middle;
+    }
+    tr:hover td { background: #fafafa; }
+    tr.filtered-row { opacity: 0.38; }
+
+    .addr-cell { max-width: 220px; }
+    .addr-cell a { color: #2d6abf; text-decoration: none; font-weight: 500; }
+    .addr-cell a:hover { text-decoration: underline; }
+    .addr-sub { font-size: 0.72rem; color: #999; margin-top: 2px; }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 20px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .badge-BH  { background: #e3f2fd; color: #1565c0; }
+    .badge-LP  { background: #e8f5e9; color: #2e7d32; }
+    .badge-VL  { background: #fff3e0; color: #bf360c; }
+    .badge-OT  { background: #f3e5f5; color: #6a1b9a; }
+    .badge-below   { background: #e8f5e9; color: #2e7d32; }
+    .badge-average { background: #fffde7; color: #f57f17; }
+    .badge-above   { background: #ffebee; color: #c62828; }
+
+    .repeat {
+      background: #ff5722;
+      color: white;
+      border-radius: 50%;
+      width: 22px;
+      height: 22px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.72rem;
+      font-weight: 700;
+    }
+    .repeat-1 { background: #bdbdbd; }
+    .repeat-2 { background: #fb8c00; }
+    .repeat-3p { background: #e53935; }
+
+    .del-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #ccc;
+      font-size: 1rem;
+      padding: 0 0.2rem;
+      line-height: 1;
+    }
+    .del-btn:hover { color: #e53935; }
+
+    .empty {
+      text-align: center;
+      padding: 2.5rem;
+      color: #bbb;
+      font-size: 0.9rem;
+    }
+    .empty .empty-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+
+    .price-cell { font-weight: 600; white-space: nowrap; }
+
+    /* ── Map markers ── */
+    .map-marker {
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 700;
+      font-size: 9px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.35);
+      border: 2.5px solid white;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 1.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1a1a2e;
+      color: white;
+      padding: 0.55rem 1.2rem;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s;
+      z-index: 9999;
+    }
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Central Estates — Property Tracker</h1>
+    <div class="sub">Freehold houses only &middot; Walthamstow &amp; surrounds</div>
+  </div>
+  <button class="clear-btn" onclick="clearAll()">Clear all data</button>
+</header>
+
+<div class="page">
+
+  <!-- Stats -->
+  <div class="stats-row">
+    <div class="stat"><div class="val" id="stat-total">0</div><div class="lbl">Properties tracked</div></div>
+    <div class="stat"><div class="val" id="stat-avg">—</div><div class="lbl">Avg price (freehold)</div></div>
+    <div class="stat"><div class="val" id="stat-repeat">0</div><div class="lbl">Repeated listings</div></div>
+    <div class="stat"><div class="val" id="stat-emails">0</div><div class="lbl">Emails parsed</div></div>
+  </div>
+
+  <!-- Two-col: input + map -->
+  <div class="two-col">
+
+    <!-- Email input -->
+    <div class="card">
+      <h2>Paste email</h2>
+      <textarea id="email-input" placeholder="Paste the Central Estates weekly email here…&#10;&#10;e.g.&#10;254 Fleeming Road, E17 5EU    £600,000    THREE BEDROOM FIRST FLOOR WARNER…&#10;208 Blackhorse Lane, E17 6AD    £650,000    THREE BEDROOM HOUSE…"></textarea>
+
+      <div class="parse-actions">
+        <button class="btn btn-primary" onclick="parseEmail()">Parse email</button>
+        <button class="btn btn-ghost" onclick="clearInput()">Clear</button>
+      </div>
+
+      <div class="parse-summary" id="parse-summary">
+        <div class="ps-row"><span class="ps-label">Properties found</span><span class="ps-val" id="ps-found">0</span></div>
+        <div class="ps-row"><span class="ps-label ps-filtered">Filtered out (flats/Warners)</span><span class="ps-val ps-filtered" id="ps-filtered">0</span></div>
+        <div class="ps-row"><span class="ps-label">New to tracker</span><span class="ps-val" id="ps-new">0</span></div>
+        <div class="ps-row"><span class="ps-label">Already seen before</span><span class="ps-val" id="ps-dupe">0</span></div>
+        <button class="btn btn-primary ps-add-btn" id="ps-add-btn" onclick="addParsed()">Add to tracker</button>
+      </div>
+
+      <div class="legend">
+        <strong style="width:100%;color:#555">Areas:</strong>
+        <div class="legend-item"><div class="dot" style="background:#1565c0"></div>Blackhorse Road</div>
+        <div class="legend-item"><div class="dot" style="background:#2e7d32"></div>Lloyd Park</div>
+        <div class="legend-item"><div class="dot" style="background:#bf360c"></div>Village</div>
+        <div class="legend-item"><div class="dot" style="background:#6a1b9a"></div>Other</div>
+        <strong style="width:100%;color:#555;margin-top:0.3rem">Price vs area avg:</strong>
+        <div class="legend-item"><div class="dot" style="background:#4caf50"></div>Below avg</div>
+        <div class="legend-item"><div class="dot" style="background:#ff9800"></div>Around avg</div>
+        <div class="legend-item"><div class="dot" style="background:#f44336"></div>Above avg</div>
+      </div>
+    </div>
+
+    <!-- Map -->
+    <div class="card" style="padding:0.5rem">
+      <div id="map"></div>
+    </div>
+
+  </div>
+
+  <!-- Properties table -->
+  <div class="card table-card">
+    <div class="table-header">
+      <h2 style="margin-bottom:0">Properties</h2>
+      <div class="filters">
+        <select id="filter-area" onchange="renderTable()">
+          <option value="">All areas</option>
+          <option value="Blackhorse Road">Blackhorse Road</option>
+          <option value="Lloyd Park">Lloyd Park</option>
+          <option value="Village">Village</option>
+          <option value="Other">Other</option>
+        </select>
+        <select id="filter-beds" onchange="renderTable()">
+          <option value="">Any beds</option>
+          <option value="2">2 bed</option>
+          <option value="3">3 bed</option>
+          <option value="4">4 bed</option>
+          <option value="5">5+ bed</option>
+        </select>
+        <select id="filter-price" onchange="renderTable()">
+          <option value="">Any price</option>
+          <option value="below">Below avg</option>
+          <option value="average">Around avg</option>
+          <option value="above">Above avg</option>
+        </select>
+        <select id="filter-sort" onchange="renderTable()">
+          <option value="date-desc">Newest first</option>
+          <option value="price-asc">Price: low–high</option>
+          <option value="price-desc">Price: high–low</option>
+          <option value="repeat-desc">Most repeated</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Address</th>
+            <th>Area</th>
+            <th>Price</th>
+            <th>vs Area</th>
+            <th>Beds</th>
+            <th>Type</th>
+            <th>Times seen</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="table-body">
+          <tr><td colspan="8"><div class="empty"><div class="empty-icon">🏠</div>Paste an email to start tracking</div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ─────────────────────────────────────────
+// Storage
+// ─────────────────────────────────────────
+const STORAGE_KEY = 'ce_tracker_v2';
+
+function load() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || { properties: [], emailCount: 0 }; }
+  catch(e) { return { properties: [], emailCount: 0 }; }
+}
+
+function save(data) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+// ─────────────────────────────────────────
+// Parsing
+// ─────────────────────────────────────────
+
+// Canonical key for deduplication (normalise address)
+function addrKey(address) {
+  return address.toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 40);
+}
+
+// Area detection using postcode sectors and keywords
+function detectArea(address, description) {
+  const t = (address + ' ' + description).toUpperCase();
+
+  // Blackhorse Road: E17 6, E17 7, Higham Hill, Blackhorse Lane/Road
+  if (/E17\s*[67]\b/.test(t) || /BLACKHORSE|BLACK HORSE|HIGHAM HILL/.test(t)) {
+    return 'Blackhorse Road';
+  }
+  // Lloyd Park: E17 5, Lloyd Park mention, specific streets
+  if (/E17\s*5\b/.test(t) || /LLOYD PARK/.test(t)) {
+    return 'Lloyd Park';
+  }
+  // Walthamstow Village: E17 9, Village, Orford, Vestry
+  if (/E17\s*9\b/.test(t) || /\bVILLAGE\b|ORFORD|VESTRY/.test(t)) {
+    return 'Village';
+  }
+  return 'Other';
+}
+
+// Is this property a flat/warner? (filter these out)
+function isFlat(description) {
+  const d = description.toUpperCase();
+  return /\bFLAT\b|\bAPARTMENT\b|\bSTUDIO\b|\bWARNER\b/.test(d) ||
+    (/(?:GROUND|FIRST|SECOND|TOP)\s+FLOOR/.test(d) && !/\bHOUSE\b/.test(d));
+}
+
+// Extract bedroom count
+function parseBeds(description) {
+  const words = { ONE:1, TWO:2, THREE:3, FOUR:4, FIVE:5, SIX:6 };
+  const m = description.match(/\b(ONE|TWO|THREE|FOUR|FIVE|SIX|\d+)\s*BED(?:ROOM)?S?\b/i);
+  if (!m) return null;
+  const w = m[1].toUpperCase();
+  return words[w] !== undefined ? words[w] : parseInt(m[1]);
+}
+
+// Classify property type from description
+function parseType(description) {
+  const d = description.toUpperCase();
+  if (/DETACHED BUNGALOW|SEMI.?DETACHED BUNGALOW/.test(d)) return 'Bungalow';
+  if (/SEMI.?DETACHED/.test(d)) return 'Semi-detached';
+  if (/END OF TERRACE|END-OF-TERRACE/.test(d)) return 'End of terrace';
+  if (/TERRACED|MID.?TERRACE/.test(d)) return 'Terraced';
+  if (/DETACHED/.test(d)) return 'Detached';
+  if (/\bHOUSE\b/.test(d)) return 'House';
+  return 'House';
+}
+
+// Main email parser — handles Central Estates weekly format
+function parseEmailText(text) {
+  const results = { found: [], filtered: [] };
+
+  // Split into lines and process each
+  const lines = text.split(/\r?\n/);
+
+  for (const rawLine of lines) {
+    const line = rawLine.replace(/\s+/g, ' ').trim();
+
+    // Must contain a £price
+    const priceMatch = line.match(/£\s*([\d,]+)/);
+    if (!priceMatch) continue;
+
+    const price = parseInt(priceMatch[1].replace(/,/g, ''));
+    if (price < 100000 || price > 5000000) continue;
+
+    const pricePos = line.indexOf(priceMatch[0]);
+
+    // Address is before the price
+    let address = line.substring(0, pricePos).trim().replace(/\s+/g, ' ');
+    if (!address || address.length < 5) continue;
+
+    // After price: description + optional URL
+    let afterPrice = line.substring(pricePos + priceMatch[0].length).trim();
+
+    // Extract URL
+    const urlMatch = afterPrice.match(/https?:\/\/\S+/);
+    const url = urlMatch ? urlMatch[0] : '';
+    const description = urlMatch
+      ? afterPrice.substring(0, afterPrice.indexOf(urlMatch[0])).trim()
+      : afterPrice.trim();
+
+    const cleanDesc = description.replace(/\s+/g, ' ').trim();
+
+    // Determine if flat/warner
+    if (isFlat(cleanDesc)) {
+      results.filtered.push({ address, price, description: cleanDesc, url });
+      continue;
+    }
+
+    // Build property object
+    const area = detectArea(address, cleanDesc);
+    const beds = parseBeds(cleanDesc);
+    const type = parseType(cleanDesc);
+
+    results.found.push({
+      address,
+      price,
+      description: cleanDesc,
+      url,
+      area,
+      beds,
+      type,
+      // tenure is inferred (house = freehold in this market)
+      tenure: 'Freehold',
+    });
+  }
+
+  return results;
+}
+
+// ─────────────────────────────────────────
+// Price assessment (vs area median)
+// ─────────────────────────────────────────
+
+// Baseline benchmarks (£) if insufficient data
+const BENCHMARKS = {
+  'Blackhorse Road': 675000,
+  'Lloyd Park':      650000,
+  'Village':         750000,
+  'Other':           650000,
+};
+
+function getAreaMedian(area) {
+  const data = load();
+  const prices = data.properties
+    .filter(p => p.area === area)
+    .map(p => p.price);
+
+  if (prices.length < 3) return BENCHMARKS[area] || 650000;
+
+  prices.sort((a, b) => a - b);
+  const mid = Math.floor(prices.length / 2);
+  return prices.length % 2 !== 0
+    ? prices[mid]
+    : (prices[mid - 1] + prices[mid]) / 2;
+}
+
+function assessPrice(price, area) {
+  const median = getAreaMedian(area);
+  const ratio = price / median;
+  if (ratio < 0.93) return 'below';
+  if (ratio > 1.08) return 'above';
+  return 'average';
+}
+
+// ─────────────────────────────────────────
+// Geocoding (Nominatim, rate-limited)
+// ─────────────────────────────────────────
+
+const geoQueue = [];
+let geoRunning = false;
+
+function enqueueGeocode(id, address) {
+  geoQueue.push({ id, address });
+  if (!geoRunning) drainGeoQueue();
+}
+
+async function drainGeoQueue() {
+  if (!geoQueue.length) { geoRunning = false; return; }
+  geoRunning = true;
+  const { id, address } = geoQueue.shift();
+
+  const data = load();
+  const prop = data.properties.find(p => p.id === id);
+  if (!prop || (prop.lat && prop.lng)) {
+    // already geocoded or gone
+    setTimeout(drainGeoQueue, 500);
+    return;
+  }
+
+  try {
+    const q = encodeURIComponent(address + ', London, UK');
+    const resp = await fetch(
+      `https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1&countrycodes=gb`,
+      { headers: { 'User-Agent': 'CentralEstatesTracker/1.0 (personal)' } }
+    );
+    const json = await resp.json();
+    if (json && json[0]) {
+      prop.lat = parseFloat(json[0].lat);
+      prop.lng = parseFloat(json[0].lon);
+      save(data);
+      updateMapMarker(prop);
+    }
+  } catch(e) {
+    // silently skip — can retry later
+  }
+
+  setTimeout(drainGeoQueue, 1200);
+}
+
+// ─────────────────────────────────────────
+// Map
+// ─────────────────────────────────────────
+
+const AREA_COLORS = {
+  'Blackhorse Road': '#1565c0',
+  'Lloyd Park':      '#2e7d32',
+  'Village':         '#bf360c',
+  'Other':           '#6a1b9a',
+};
+
+const PRICE_RING = {
+  'below':   '#4caf50',
+  'average': '#ff9800',
+  'above':   '#f44336',
+};
+
+let map;
+const mapMarkers = {}; // id → L.marker
+
+function initMap() {
+  map = L.map('map').setView([51.5877, -0.0199], 13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a>',
+    maxZoom: 19
+  }).addTo(map);
+}
+
+function makeMarkerIcon(prop) {
+  const bg = AREA_COLORS[prop.area] || '#555';
+  const ring = PRICE_RING[prop.priceAssessment] || '#999';
+  const label = prop.beds ? prop.beds + 'b' : '?';
+  const size = 28;
+  return L.divIcon({
+    html: `<div class="map-marker" style="width:${size}px;height:${size}px;background:${bg};outline:3px solid ${ring};font-size:10px">${label}</div>`,
+    className: '',
+    iconSize: [size, size],
+    iconAnchor: [size/2, size/2],
+    popupAnchor: [0, -size/2],
+  });
+}
+
+function makePopupHtml(prop) {
+  const repeatStr = prop.seenDates.length > 1
+    ? `<br><strong style="color:#e53935">Sent ${prop.seenDates.length}× (${prop.seenDates.map(d => new Date(d).toLocaleDateString('en-GB', {day:'numeric',month:'short'})).join(', ')})</strong>`
+    : '';
+  const linkStr = prop.url ? `<br><a href="${prop.url}" target="_blank" style="color:#2d6abf">View listing ↗</a>` : '';
+  return `
+    <div style="font-size:13px;min-width:180px">
+      <strong>${prop.address}</strong>
+      <br>£${prop.price.toLocaleString()} &middot; ${prop.beds || '?'} bed ${prop.type}
+      <br>${prop.area} &middot; <span style="color:${PRICE_RING[prop.priceAssessment]}">${prop.priceAssessment} avg</span>
+      ${repeatStr}${linkStr}
+    </div>
+  `;
+}
+
+function updateMapMarker(prop) {
+  if (!prop.lat || !prop.lng) return;
+  if (mapMarkers[prop.id]) {
+    mapMarkers[prop.id].remove();
+  }
+  const marker = L.marker([prop.lat, prop.lng], { icon: makeMarkerIcon(prop) })
+    .bindPopup(makePopupHtml(prop))
+    .addTo(map);
+  mapMarkers[prop.id] = marker;
+}
+
+function rebuildMapMarkers() {
+  // remove all
+  Object.values(mapMarkers).forEach(m => m.remove());
+  Object.keys(mapMarkers).forEach(k => delete mapMarkers[k]);
+
+  const data = load();
+  data.properties.forEach(prop => {
+    if (prop.lat && prop.lng) updateMapMarker(prop);
+  });
+}
+
+// ─────────────────────────────────────────
+// Stats
+// ─────────────────────────────────────────
+
+function updateStats() {
+  const data = load();
+  const props = data.properties;
+
+  document.getElementById('stat-total').textContent = props.length;
+  document.getElementById('stat-emails').textContent = data.emailCount || 0;
+
+  const repeated = props.filter(p => p.seenDates.length > 1).length;
+  document.getElementById('stat-repeat').textContent = repeated;
+
+  const prices = props.map(p => p.price);
+  if (prices.length) {
+    const avg = Math.round(prices.reduce((a,b) => a+b, 0) / prices.length);
+    document.getElementById('stat-avg').textContent = '£' + formatPrice(avg);
+  } else {
+    document.getElementById('stat-avg').textContent = '—';
+  }
+}
+
+function formatPrice(p) {
+  if (p >= 1000000) return (p/1000000).toFixed(2) + 'm';
+  return (p/1000).toFixed(0) + 'k';
+}
+
+// ─────────────────────────────────────────
+// Table
+// ─────────────────────────────────────────
+
+const AREA_BADGE = {
+  'Blackhorse Road': 'badge-BH',
+  'Lloyd Park':      'badge-LP',
+  'Village':         'badge-VL',
+  'Other':           'badge-OT',
+};
+
+function renderTable() {
+  const data = load();
+  let props = [...data.properties];
+
+  // Filters
+  const areaF  = document.getElementById('filter-area').value;
+  const bedsF  = document.getElementById('filter-beds').value;
+  const priceF = document.getElementById('filter-price').value;
+  const sort   = document.getElementById('filter-sort').value;
+
+  if (areaF)  props = props.filter(p => p.area === areaF);
+  if (bedsF)  {
+    const n = parseInt(bedsF);
+    props = props.filter(p => n === 5 ? (p.beds >= 5) : (p.beds === n));
+  }
+  if (priceF) props = props.filter(p => p.priceAssessment === priceF);
+
+  // Sort
+  if (sort === 'price-asc')    props.sort((a,b) => a.price - b.price);
+  if (sort === 'price-desc')   props.sort((a,b) => b.price - a.price);
+  if (sort === 'repeat-desc')  props.sort((a,b) => b.seenDates.length - a.seenDates.length);
+  if (sort === 'date-desc')    props.sort((a,b) => new Date(b.seenDates[b.seenDates.length-1]) - new Date(a.seenDates[a.seenDates.length-1]));
+
+  const tbody = document.getElementById('table-body');
+
+  if (!props.length) {
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty"><div class="empty-icon">🏠</div>${data.properties.length ? 'No properties match filters' : 'Paste an email to start tracking'}</div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = props.map(p => {
+    const areaClass = AREA_BADGE[p.area] || 'badge-OT';
+    const seenCount = p.seenDates.length;
+    const repeatClass = seenCount >= 3 ? 'repeat repeat-3p' : seenCount === 2 ? 'repeat repeat-2' : 'repeat repeat-1';
+    const addrHtml = p.url
+      ? `<a href="${p.url}" target="_blank">${p.address}</a>`
+      : p.address;
+    const firstSeen = new Date(p.seenDates[0]).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'2-digit' });
+    const lastSeen  = seenCount > 1 ? new Date(p.seenDates[seenCount-1]).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'2-digit' }) : null;
+    const seenStr   = lastSeen ? `First: ${firstSeen}<br>Last: ${lastSeen}` : firstSeen;
+
+    return `<tr>
+      <td class="addr-cell">${addrHtml}<div class="addr-sub">${p.description.substring(0, 60)}${p.description.length > 60 ? '…' : ''}</div></td>
+      <td><span class="badge ${areaClass}">${p.area}</span></td>
+      <td class="price-cell">£${p.price.toLocaleString()}</td>
+      <td><span class="badge badge-${p.priceAssessment}">${p.priceAssessment}</span></td>
+      <td>${p.beds || '?'}</td>
+      <td>${p.type}</td>
+      <td>
+        <span class="${repeatClass}">${seenCount}</span>
+        <div class="addr-sub">${seenStr}</div>
+      </td>
+      <td><button class="del-btn" onclick="deleteProperty('${p.id}')" title="Remove">✕</button></td>
+    </tr>`;
+  }).join('');
+}
+
+// ─────────────────────────────────────────
+// Parse & add flow
+// ─────────────────────────────────────────
+
+let pendingParsed = null;
+
+function parseEmail() {
+  const text = document.getElementById('email-input').value.trim();
+  if (!text) { showToast('Paste an email first'); return; }
+
+  const { found, filtered } = parseEmailText(text);
+  const data = load();
+
+  let newCount = 0, dupeCount = 0;
+  const dupeIds = new Set();
+
+  for (const p of found) {
+    const key = addrKey(p.address);
+    const existing = data.properties.find(e => e.id === key);
+    if (existing) {
+      dupeCount++;
+      dupeIds.add(key);
+    } else {
+      newCount++;
+    }
+  }
+
+  pendingParsed = { found, filtered, text };
+
+  const summary = document.getElementById('parse-summary');
+  summary.style.display = 'block';
+  document.getElementById('ps-found').textContent = found.length;
+  document.getElementById('ps-filtered').textContent = filtered.length;
+  document.getElementById('ps-new').textContent = newCount;
+  document.getElementById('ps-dupe').textContent = dupeCount;
+  document.getElementById('ps-add-btn').textContent =
+    found.length === 0 ? 'Nothing to add' : `Add ${found.length} ${found.length === 1 ? 'property' : 'properties'} to tracker`;
+  document.getElementById('ps-add-btn').disabled = found.length === 0;
+}
+
+function addParsed() {
+  if (!pendingParsed) return;
+  const { found } = pendingParsed;
+
+  const data = load();
+  const now = new Date().toISOString();
+
+  for (const p of found) {
+    const key = addrKey(p.address);
+    const existing = data.properties.find(e => e.id === key);
+
+    if (existing) {
+      // bump seen date and refresh price/description if changed
+      if (!existing.seenDates.includes(now.split('T')[0])) {
+        existing.seenDates.push(now);
+      }
+      // update price if it has changed
+      if (existing.price !== p.price) {
+        existing.price = p.price;
+      }
+      existing.priceAssessment = assessPrice(existing.price, existing.area);
+    } else {
+      const newProp = {
+        id: key,
+        address: p.address,
+        price: p.price,
+        description: p.description,
+        url: p.url,
+        area: p.area,
+        beds: p.beds,
+        type: p.type,
+        tenure: p.tenure,
+        priceAssessment: 'average', // will be recalculated below
+        seenDates: [now],
+        lat: null,
+        lng: null,
+      };
+      data.properties.push(newProp);
+    }
+  }
+
+  // Recalculate price assessment for all (median may have shifted)
+  data.properties.forEach(p => {
+    p.priceAssessment = assessPrice(p.price, p.area);
+  });
+
+  data.emailCount = (data.emailCount || 0) + 1;
+  save(data);
+
+  // Queue geocoding for any without coords
+  data.properties
+    .filter(p => !p.lat || !p.lng)
+    .forEach(p => enqueueGeocode(p.id, p.address));
+
+  updateStats();
+  renderTable();
+  rebuildMapMarkers();
+
+  showToast(`Added ${found.length} ${found.length === 1 ? 'property' : 'properties'}`);
+  clearInput();
+}
+
+function deleteProperty(id) {
+  const data = load();
+  data.properties = data.properties.filter(p => p.id !== id);
+  save(data);
+  if (mapMarkers[id]) { mapMarkers[id].remove(); delete mapMarkers[id]; }
+  updateStats();
+  renderTable();
+}
+
+function clearInput() {
+  document.getElementById('email-input').value = '';
+  document.getElementById('parse-summary').style.display = 'none';
+  pendingParsed = null;
+}
+
+function clearAll() {
+  if (!confirm('Clear all tracked properties and email history?')) return;
+  localStorage.removeItem(STORAGE_KEY);
+  Object.values(mapMarkers).forEach(m => m.remove());
+  Object.keys(mapMarkers).forEach(k => delete mapMarkers[k]);
+  updateStats();
+  renderTable();
+  showToast('All data cleared');
+}
+
+// ─────────────────────────────────────────
+// Toast
+// ─────────────────────────────────────────
+
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+// ─────────────────────────────────────────
+// Boot
+// ─────────────────────────────────────────
+
+document.addEventListener('DOMContentLoaded', () => {
+  initMap();
+
+  const data = load();
+
+  // Re-queue any missing geocodes
+  data.properties
+    .filter(p => !p.lat || !p.lng)
+    .forEach(p => enqueueGeocode(p.id, p.address));
+
+  updateStats();
+  renderTable();
+
+  // Place markers for already-geocoded properties
+  data.properties
+    .filter(p => p.lat && p.lng)
+    .forEach(p => updateMapMarker(p));
+});
+</script>
+</body>
+</html>
