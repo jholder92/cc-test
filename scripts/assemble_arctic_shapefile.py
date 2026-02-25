@@ -128,6 +128,21 @@ def get_gadm(iso3: str, level: int = 2) -> gpd.GeoDataFrame:
     return gdf
 
 
+def get_gadm_rus2() -> gpd.GeoDataFrame:
+    """Download GADM Russia level-2 via the lightweight JSON endpoint (~2 MB)."""
+    cache = CACHE / "gadm_RUS_L2.gpkg"
+    if cache.exists():
+        return gpd.read_file(cache)
+    url = "https://geodata.ucdavis.edu/gadm/gadm4.1/json/gadm41_RUS_2.json.zip"
+    data = _dl(url, "GADM Russia level-2 JSON (~2 MB)")
+    with zipfile.ZipFile(io.BytesIO(data)) as z:
+        fname = next(n for n in z.namelist() if n.endswith(".json"))
+        with z.open(fname) as f:
+            gdf = gpd.read_file(f)
+    gdf.to_file(cache, driver="GPKG")
+    return gdf
+
+
 # ── Natural Earth name mapping ────────────────────────────────────────────────
 # Maps ADMIN_NAME → substring to search in NE name / name_en fields
 # None = handle as special case below
@@ -158,7 +173,9 @@ NE_MAP = {
     "Finnmark":                "Finnmark",
 
     # Russia
-    "Krasnoyarsk kray":        "Krasnoyarsk",
+    # Krasnoyarsk kray is handled as a special case: we split it into
+    # Krasnoyarsk proper / Evenki Okrug / Taymyr Okrug via GADM RUS level-2
+    "Krasnoyarsk kray":        None,
     # Koryak AO merged into Kamchatka Krai 2007; dataset treats them as one unit (~514k pop)
     "KoryakOkrg a Kamchatka":  "Kamchatka",          # NE = "Kamchatka Krai"
     "Karelian Republic":       "Karelia",
@@ -393,28 +410,48 @@ def main():
     features.append(feat)
     print("  [synthetic] Jan Mayen: 0.25° buffer at 71.03°N 8.30°W")
 
-    # 3g. Evenki Okrug – dissolved into Krasnoyarsk Krai 2007; no longer in NE
-    #     Evenk District of Krasnoyarsk: roughly 60-67°N, 90-108°E
-    #     Using a rough bounding polygon as approximation
-    evenki_row = df[df["ADMIN_NAME"] == "Evenki Okrug"].iloc[0]
-    from shapely.geometry import Polygon
-    # Approximate Evenki AO boundary box (very rough; ~767,600 km²)
-    evenki_approx = box(90.0, 58.5, 108.0, 67.5)
-    feat = evenki_row.to_dict()
-    feat["geometry"] = evenki_approx
-    feat["source"] = "synthetic_bbox_approx"
-    features.append(feat)
-    print("  [approx bbox] Evenki Okrug: rough bounding box (dissolved 2007; use historical GADM for accuracy)")
+    # 3g/h/i. Krasnoyarsk kray, Evenki Okrug, Taymyr Okrug
+    #
+    # In GADM Russia level-2, Krasnoyarsk Krai is divided into three groups
+    # identified by the HASC_2 prefix:
+    #   RU.KX.*  →  former Evenki Autonomous Okrug (4 districts)
+    #   RU.TM.*  →  former Taymyr Autonomous Okrug (4 districts)
+    #   RU.KY.*  →  core Krasnoyarsk Krai (50 districts)
+    # Dissolving each group exactly reconstructs the historical boundaries
+    # used in the AHDR / Nordregio Arctic regions dataset.
+    print("  Krasnoyarsk / Evenki / Taymyr: splitting via GADM RUS level-2...")
+    try:
+        gadm_rus2 = get_gadm_rus2()
+        kr = gadm_rus2[gadm_rus2["NAME_1"].str.contains("Krasnoyarsk", case=False, na=False)]
 
-    # 3h. Taymyr Okrug – dissolved into Krasnoyarsk Krai 2007; no longer in NE
-    #     Taymyr Dolgan-Nenets District: roughly 70-78°N, 80-106°E
-    taymyr_row = df[df["ADMIN_NAME"] == "Taymyr Okrug"].iloc[0]
-    taymyr_approx = box(80.0, 68.0, 106.0, 78.5)
-    feat = taymyr_row.to_dict()
-    feat["geometry"] = taymyr_approx
-    feat["source"] = "synthetic_bbox_approx"
-    features.append(feat)
-    print("  [approx bbox] Taymyr Okrug: rough bounding box (dissolved 2007; use historical GADM for accuracy)")
+        evenki_geom  = unary_union(kr[kr["HASC_2"].str.startswith("RU.KX")].geometry)
+        taymyr_geom  = unary_union(kr[kr["HASC_2"].str.startswith("RU.TM")].geometry)
+        kray_geom    = unary_union(kr[kr["HASC_2"].str.startswith("RU.KY")].geometry)
+
+        for admin_name, geom in [
+            ("Krasnoyarsk kray", kray_geom),
+            ("Evenki Okrug",     evenki_geom),
+            ("Taymyr Okrug",     taymyr_geom),
+        ]:
+            row = df[df["ADMIN_NAME"] == admin_name].iloc[0]
+            feat = row.to_dict()
+            feat["geometry"] = geom
+            feat["source"] = "GADM_RUS_L2_HASC_dissolve"
+            features.append(feat)
+            print(f"  [ok] {admin_name} → GADM RUS level-2 HASC dissolve")
+
+    except Exception as e:
+        print(f"  [WARN] Krasnoyarsk/Evenki/Taymyr GADM split failed: {e}")
+        # Fall back to NE for Krasnoyarsk (covers the whole kray including okrugs)
+        ne_kr = ne_sub[ne_sub["name"].str.contains("Krasnoyarsk", case=False, na=False)]
+        if len(ne_kr):
+            row = df[df["ADMIN_NAME"] == "Krasnoyarsk kray"].iloc[0]
+            feat = row.to_dict()
+            feat["geometry"] = unary_union(ne_kr.geometry)
+            feat["source"] = "NaturalEarth_fallback"
+            features.append(feat)
+        for admin_name in ["Evenki Okrug", "Taymyr Okrug"]:
+            not_found.append(df[df["ADMIN_NAME"] == admin_name].iloc[0])
 
     # 4. Combine and export
     print(f"\n--- Results ---")
