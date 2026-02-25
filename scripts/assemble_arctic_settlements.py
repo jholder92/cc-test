@@ -32,9 +32,6 @@ REGIONS = ROOT / "outputs" / "arctic_regions.geojson"
 OUT     = ROOT / "outputs" / "arctic_settlements.geojson"
 CACHE.mkdir(parents=True, exist_ok=True)
 
-# Countries that have territory in the Arctic regions dataset
-COUNTRIES = ["CA", "FI", "FO", "GL", "IS", "NO", "RU", "SE", "US"]
-
 GEONAMES_COLS = [
     "geonameid", "name", "asciiname", "alternatenames",
     "latitude", "longitude", "feature_class", "feature_code",
@@ -45,6 +42,9 @@ GEONAMES_COLS = [
 
 # Feature codes to exclude: sub-sections, abandoned, and destroyed places
 EXCLUDE_CODES = {"PPLX", "PPLQ", "PPLW", "PPLS", "PPLCH"}
+
+# Arctic country codes (for filtering the global file)
+ARCTIC_COUNTRIES = {"CA", "FI", "FO", "GL", "IS", "NO", "RU", "SE", "US"}
 
 
 def pop_class(pop) -> str:
@@ -63,39 +63,76 @@ def pop_class(pop) -> str:
         return ">50,000"
 
 
-def download_geonames(country_code: str) -> pd.DataFrame:
-    """Return GeoNames populated places for one country (cached as parquet)."""
-    cache_path = CACHE / f"geonames_{country_code}.parquet"
+def load_geonames_places() -> pd.DataFrame:
+    """
+    Download GeoNames cities1000 — a single global file of all populated
+    places with population ≥ 1,000.  Cached as parquet after first download.
+    Returns a normalised DataFrame with columns:
+      name, latitude, longitude, country_code, feature_code, population
+    """
+    cache_path = CACHE / "geonames_cities1000.parquet"
     if cache_path.exists():
-        print(f"  [cache] {country_code}")
+        print("  [cache] GeoNames cities1000")
         return pd.read_parquet(cache_path)
 
-    url = f"https://download.geonames.org/export/dump/{country_code}.zip"
-    print(f"  Downloading {country_code} from GeoNames …")
-    r = requests.get(url, timeout=600, stream=True)
+    url = "https://download.geonames.org/export/dump/cities1000.zip"
+    print("  Downloading GeoNames cities1000 (pop ≥ 1,000, global) …")
+    r = requests.get(url, timeout=300, stream=True)
     r.raise_for_status()
     data = b"".join(r.iter_content(65536))
 
     with zipfile.ZipFile(io.BytesIO(data)) as z:
-        with z.open(f"{country_code}.txt") as f:
+        with z.open("cities1000.txt") as f:
             df = pd.read_csv(
-                f,
-                sep="\t",
-                header=None,
-                names=GEONAMES_COLS,
-                dtype={"population": "Int64"},
-                low_memory=False,
-                encoding="utf-8",
+                f, sep="\t", header=None, names=GEONAMES_COLS,
+                dtype={"population": "Int64"}, low_memory=False,
             )
 
-    # Filter to populated places, dropping sub-sections / abandoned entries
-    df = df[
-        (df["feature_class"] == "P") &
-        (~df["feature_code"].isin(EXCLUDE_CODES))
-    ].copy()
-
+    df = df[~df["feature_code"].isin(EXCLUDE_CODES)].copy()
     df.to_parquet(cache_path, index=False)
-    print(f"  [ok] {country_code}: {len(df):,} populated places")
+    print(f"  [ok] {len(df):,} places")
+    return df
+
+
+def load_ne_places() -> pd.DataFrame:
+    """
+    Fallback: Natural Earth 10m populated places shapefile.
+    Normalises columns to match the GeoNames schema used downstream.
+    """
+    cache_gpkg = CACHE / "ne_10m_populated_places.gpkg"
+    if cache_gpkg.exists():
+        print("  [cache] Natural Earth populated places")
+        gdf = gpd.read_file(cache_gpkg)
+    else:
+        url = ("https://naciscdn.org/naturalearth/10m/cultural/"
+               "ne_10m_populated_places.zip")
+        print("  Downloading Natural Earth populated places (~1 MB) …")
+        r = requests.get(url, timeout=120, stream=True)
+        r.raise_for_status()
+        data = b"".join(r.iter_content(65536))
+        raw_dir = CACHE / "ne_ppl_raw"
+        raw_dir.mkdir(exist_ok=True)
+        with zipfile.ZipFile(io.BytesIO(data)) as z:
+            z.extractall(raw_dir)
+        shp = next(raw_dir.glob("*.shp"))
+        gdf = gpd.read_file(shp)
+        gdf.to_file(cache_gpkg, driver="GPKG")
+        print(f"  [ok] {len(gdf):,} places")
+
+    # Normalise to common schema
+    # NE uses ADM0_A3 (3-letter) — map to 2-letter for consistency
+    iso3_to_2 = {
+        "CAN": "CA", "FIN": "FI", "FRO": "FO", "GRL": "GL",
+        "ISL": "IS", "NOR": "NO", "RUS": "RU", "SWE": "SE", "USA": "US",
+    }
+    df = pd.DataFrame({
+        "name":         gdf["NAME"],
+        "latitude":     gdf.geometry.y,
+        "longitude":    gdf.geometry.x,
+        "country_code": gdf["ADM0_A3"].map(iso3_to_2),
+        "feature_code": "PPL",
+        "population":   pd.array(gdf["POP_MAX"], dtype="Int64"),
+    })
     return df
 
 
@@ -107,23 +144,28 @@ def main():
     regions = gpd.read_file(REGIONS)
     print(f"  {len(regions)} regions")
 
-    # 2. Download GeoNames for each country
-    print("\nDownloading GeoNames populated places …")
-    frames = []
-    for cc in COUNTRIES:
-        try:
-            frames.append(download_geonames(cc))
-        except Exception as e:
-            print(f"  [WARN] {cc} failed: {e}")
+    # 2. Load populated places — GeoNames preferred, NE as fallback
+    print("\nLoading populated places …")
+    try:
+        all_places = load_geonames_places()
+        source_label = "GeoNames cities1000"
+    except Exception as e:
+        print(f"  GeoNames unavailable ({e}); falling back to Natural Earth …")
+        all_places = load_ne_places()
+        source_label = "Natural Earth 10m populated places"
+    print(f"  Source: {source_label}")
 
-    places = pd.concat(frames, ignore_index=True)
-    print(f"\nTotal populated places (all countries): {len(places):,}")
+    # Pre-filter to Arctic countries before the expensive spatial join
+    places = all_places[all_places["country_code"].isin(ARCTIC_COUNTRIES)].copy()
+    print(f"  {len(places):,} places in Arctic countries")
 
     # 3. Build a GeoDataFrame of point geometries
     places = places.dropna(subset=["latitude", "longitude"])
+    # Only keep columns that actually exist (schema differs between GeoNames and NE)
+    keep_cols = [c for c in ["geonameid", "name", "country_code", "admin1_code",
+                              "feature_code", "population"] if c in places.columns]
     gdf = gpd.GeoDataFrame(
-        places[["geonameid", "name", "country_code", "admin1_code",
-                "feature_code", "population"]],
+        places[keep_cols],
         geometry=gpd.points_from_xy(places["longitude"], places["latitude"]),
         crs="EPSG:4326",
     )
