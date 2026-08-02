@@ -1,0 +1,1540 @@
+{
+  "meta": {
+    "version": "1.0.0",
+    "title": "Valencia Marathon 2026",
+    "subtitle": "Pfitzinger 18/70, 3rd ed. — recalibrated for 2:55",
+    "athlete": "Josh",
+    "race": {
+      "name": "Marathon Valencia Trinidad Alfonso",
+      "date": "2026-12-06",
+      "distance_km": 42.2,
+      "goal_a": "2:55:00",
+      "goal_b": "2:59:xx (sub-3)",
+      "goal_a_pace": "4:08-4:13",
+      "goal_b_pace": "4:14-4:15"
+    },
+    "tuneup": {
+      "name": "Oxford Half Marathon",
+      "date": "2026-10-11",
+      "window_pace": "3:53-4:00",
+      "target": "1:22-1:24"
+    },
+    "block_start": "2026-08-03",
+    "block_end": "2026-12-06",
+    "weeks": 18,
+    "total_km": 1586.2
+  },
+  "paces": {
+    "mp": {
+      "label": "Marathon pace",
+      "range": "4:08-4:13",
+      "hr_ceiling": 170,
+      "note": "Goal-anchored. Never run slower — shorten instead. HR ceiling is a pass criterion, not a guide."
+    },
+    "lt": {
+      "label": "Lactate threshold",
+      "range": "4:00-4:16 (moves through block)",
+      "hr": "172-178",
+      "note": "Anchored to CURRENT 15K-HM race pace, not goal pace. Calibrate from Saucony/Oxford."
+    },
+    "vo2": {
+      "label": "VO2max / 5K pace",
+      "range": "3:50-4:00",
+      "note": "Track sessions. Designated flex — first to be cut if Achilles complains."
+    },
+    "long": {
+      "label": "Long run",
+      "range": "4:56 > 4:33 progressive",
+      "note": "Pfitz progressive: ~20% below MP easing to ~10% below."
+    },
+    "mlr": {
+      "label": "Medium-long",
+      "range": "4:59 > 4:39 progressive",
+      "note": "Second endurance pillar. Not a filler run."
+    },
+    "ga": {
+      "label": "General aerobic",
+      "range": "4:48-5:06",
+      "note": "15-25% below MP."
+    },
+    "recovery": {
+      "label": "Recovery",
+      "range": "5:15-5:38",
+      "note": "The day to defend as genuinely slow. A fast recovery run is a failed recovery run."
+    },
+    "strides": {
+      "label": "Strides",
+      "range": "~3:20-3:30",
+      "note": "Relaxed, full recovery. Cadence work."
+    },
+    "hills": {
+      "label": "Hill sprints",
+      "range": "10-12s max effort",
+      "note": "Walk-back recovery. Flat strides as fallback if the heel objects."
+    }
+  },
+  "session_types": {
+    "rest": {
+      "label": "Rest / cross-train",
+      "color_role": "neutral"
+    },
+    "recovery": {
+      "label": "Recovery",
+      "color_role": "easy"
+    },
+    "easy": {
+      "label": "Easy",
+      "color_role": "easy"
+    },
+    "ga": {
+      "label": "General aerobic",
+      "color_role": "easy"
+    },
+    "ga_speed": {
+      "label": "GA + speed",
+      "color_role": "easy_plus"
+    },
+    "mlr": {
+      "label": "Medium-long run",
+      "color_role": "long"
+    },
+    "long": {
+      "label": "Long run",
+      "color_role": "long"
+    },
+    "lt": {
+      "label": "Lactate threshold",
+      "color_role": "threshold"
+    },
+    "mp": {
+      "label": "Marathon pace",
+      "color_role": "mp"
+    },
+    "vo2": {
+      "label": "VO2max",
+      "color_role": "vo2"
+    },
+    "race": {
+      "label": "Race / tune-up",
+      "color_role": "race"
+    },
+    "shakeout": {
+      "label": "Shakeout",
+      "color_role": "easy"
+    }
+  },
+  "rules": [
+    "Dew point above 16°C: run by effort, let pace go. Above 19°C: discard the numbers entirely.",
+    "Achilles — two stiff mornings in a row: trim hill sprints and VO2 first, never easy volume.",
+    "Every MP session is logged as three numbers: average pace, average HR, and drift between first and second half of the block.",
+    "Commute A = 15 km, Commute B = 21 km. Never on Mondays.",
+    "Gym A (lower + pull) Monday, Gym B (upper only) Friday PM. Quality and gym legs share days; the day before Sunday stays clean.",
+    "When a week goes wrong, cut in this order: Thursday MLR, then Saturday GA, then the quality session. Never cut the Sunday long run. Never make up missed volume the following week.",
+    "TSB below -30 means a rest day is the productive call — but it captures cardiovascular load only and overestimates freshness for a musculoskeletal limiter.",
+    "Cycling commute does not count toward running volume (~3-4 km running equivalent per leg) but does count toward total fatigue."
+  ],
+  "gate": {
+    "name": "The Oxford gate",
+    "date": "2026-10-11",
+    "set_once": true,
+    "note": "Race pace is set once from evidence, then not revisited on race morning. Default to sub-3 in the absence of evidence rather than defaulting to 2:55 and downgrading.",
+    "bands": [
+      {
+        "result": "1:21:30 or faster",
+        "reads_as": "2:52 is on the table",
+        "mp_after": "4:04-4:09"
+      },
+      {
+        "result": "1:21:31 - 1:23:30",
+        "reads_as": "2:55 confirmed",
+        "mp_after": "4:08-4:13"
+      },
+      {
+        "result": "Slower than 1:23:30",
+        "reads_as": "Defend sub-3",
+        "mp_after": "4:13-4:18"
+      }
+    ],
+    "confirmation": "Week 13 (1 Nov) 23 km @ MP is the second half of the gate: even split, avg HR ≤170, drift <5 bpm. Both must agree before 2:55 is the race-day number."
+  },
+  "weeks": [
+    {
+      "id": 0,
+      "label": "Re-entry",
+      "block": "Mechanics reset",
+      "start": "2026-07-27",
+      "end": "2026-08-02",
+      "total_km": 49,
+      "book_week": null,
+      "book_range": null,
+      "headline": "Back from the Pyrenees",
+      "note": "Pre-plan week — not in the book. Purpose: restore running mechanics after the hike. No quality.",
+      "days": [
+        {
+          "day": "Mon",
+          "date": "2026-07-27",
+          "type": "rest",
+          "title": "Rest",
+          "km": 0,
+          "note": "Travel home — unpack legs"
+        },
+        {
+          "day": "Tue",
+          "date": "2026-07-28",
+          "type": "recovery",
+          "title": "Recovery",
+          "km": 8,
+          "pace": "5:15-5:35",
+          "note": "Legs check — soft surface if possible"
+        },
+        {
+          "day": "Wed",
+          "date": "2026-07-29",
+          "type": "easy",
+          "title": "Easy",
+          "km": 10,
+          "pace": "5:05-5:20",
+          "note": "HR under 160"
+        },
+        {
+          "day": "Thu",
+          "date": "2026-07-30",
+          "type": "rest",
+          "title": "Rest / cross-train",
+          "km": 0,
+          "note": "Or 30 min easy spin"
+        },
+        {
+          "day": "Fri",
+          "date": "2026-07-31",
+          "type": "easy",
+          "title": "Easy + 6x100m",
+          "km": 10,
+          "pace": "4:58-5:15",
+          "note": "Strides relaxed, full recovery"
+        },
+        {
+          "day": "Sat",
+          "date": "2026-08-01",
+          "type": "recovery",
+          "title": "Recovery",
+          "km": 7,
+          "pace": "5:15-5:30",
+          "note": "Plus drills / ankle mobility"
+        },
+        {
+          "day": "Sun",
+          "date": "2026-08-02",
+          "type": "easy",
+          "title": "Easy",
+          "km": 14,
+          "pace": "4:58-5:12",
+          "note": "Finish feeling fresh"
+        }
+      ]
+    },
+    {
+      "id": 1,
+      "label": "Week 1",
+      "block": "Block 1 — Endurance",
+      "start": "2026-08-03",
+      "end": "2026-08-09",
+      "total_km": 70,
+      "book_week": "17 weeks to goal",
+      "book_range": "77-92 km",
+      "headline": "Eased entry — below book range on purpose",
+      "note": "Weeks 1-5 sit under the book range and converge from week 6. LT window is provisional — calibrate it from the Saucony 10k result.",
+      "days": [
+        {
+          "day": "Mon",
+          "date": "2026-08-03",
+          "type": "rest",
+          "title": "Rest / cross-train",
+          "km": 0,
+          "note": "Bike commute easy OK — gym legs on or after hard days, never before Sunday"
+        },
+        {
+          "day": "Tue",
+          "date": "2026-08-04",
+          "type": "lt",
+          "title": "LT",
+          "km": 13,
+          "workout": "20-25' @ 4:10-4:16",
+          "note": "About 5-6 km at LT — continuous, by effort in heat"
+        },
+        {
+          "day": "Wed",
+          "date": "2026-08-05",
+          "type": "mlr",
+          "title": "MLR",
+          "km": 15,
+          "pace": "5:02 > 4:45",
+          "note": "Commute A — progressive, 10-20% below MP"
+        },
+        {
+          "day": "Thu",
+          "date": "2026-08-06",
+          "type": "recovery",
+          "title": "Recovery",
+          "km": 6,
+          "pace": "5:15-5:38"
+        },
+        {
+          "day": "Fri",
+          "date": "2026-08-07",
+          "type": "ga",
+          "title": "GA",
+          "km": 12,
+          "pace": "4:48-5:06",
+          "note": "GA window: 15-25% below MP"
+        },
+        {
+          "day": "Sat",
+          "date": "2026-08-08",
+          "type": "recovery",
+          "title": "Recovery",
+          "km": 5,
+          "pace": "5:15-5:38"
+        },
+        {
+          "day": "Sun",
+          "date": "2026-08-09",
+          "type": "mlr",
+          "title": "MLR",
+          "km": 19,
+          "pace": "4:59 > 4:40",
+          "note": "First third easy, settle quicker"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "label": "Week 2",
+      "block": "Block 1 — Endurance",
+      "start": "2026-08-10",
+      "end": "2026-08-16",
+      "total_km": 77,
+      "book_week": "16 weeks to goal",
+      "book_range": "79-95 km",
+      "headline": "First MP segment + first hill sprints",
+      "note": "The MP segment is a feasibility check, not a fitness test — if it rides above HM effort / HR 176+, stop it and log it.",
+      "days": [
+        {
+          "day": "Mon",
+          "date": "2026-08-10",
+          "type": "rest",
+          "title": "Rest / cross-train",
+          "km": 0
+        },
+        {
+          "day": "Tue",
+          "date": "2026-08-11",
+          "type": "ga_speed",
+          "title": "GA + speed",
+          "km": 12,
+          "pace": "4:48-5:06",
+          "workout": "4-6x10 sec hill sprints + 8x100m strides",
+          "note": "Walk-back recovery; swap hills for flat strides if the heel objects"
+        },
+        {
+          "day": "Wed",
+          "date": "2026-08-12",
+          "type": "mlr",
+          "title": "MLR",
+          "km": 18,
+          "pace": "4:59 > 4:41"
+        },
+        {
+          "day": "Thu",
+          "date": "2026-08-13",
+          "type": "recovery",
+          "title": "Recovery",
+          "km": 6,
+          "pace": "5:15-5:38"
+        },
+        {
+          "day": "Fri",
+          "date": "2026-08-14",
+          "type": "ga",
+          "title": "GA",
+          "km": 13,
+          "pace": "4:48-5:06"
+        },
+        {
+          "day": "Sat",
+          "date": "2026-08-15",
+          "type": "recovery",
+          "title": "Recovery",
+          "km": 6,
+          "pace": "5:15-5:38"
+        },
+        {
+          "day": "Sun",
+          "date": "2026-08-16",
+          "type": "mp",
+          "title": "MP run",
+          "km": 22,
+          "workout": "11 km @ 4:08-4:13",
+          "note": "Goal MP from day one — book prescribes 13 km, eased to 11. At current LT this is a threshold effort in August; that is expected."
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "label": "Week 3",
+      "block": "Block 1 — Endurance",
+      "start": "2026-08-17",
+      "end": "2026-08-23",
+      "total_km": 84,
+      "book_week": "15 weeks to goal",
+      "book_range": "84-98 km",
+      "headline": null,
+      "note": null,
+      "days": [
+        {
+          "day": "Mon",
+          "date": "2026-08-17",
+          "type": "rest",
+          "title": "Rest / cross-train",
+          "km": 0
+        },
+        {
+          "day": "Tue",
+          "date": "2026-08-18",
+          "type": "ga",
+          "title": "GA",
+          "km": 14,
+          "pace": "4:48-5:06"
+        },
+        {
+          "day": "Wed",
+          "date": "2026-08-19",
+          "type": "mlr",
+          "title": "MLR",
+          "km": 19,
+          "pace": "4:59 > 4:41"
+        },
+        {
+          "day": "Thu",
+          "date": "2026-08-20",
+          "type": "recovery",
+          "title": "Recovery",
+          "km": 8,
+          "pace": "5:15-5:38"
+        },
+        {
+          "day": "Fri",
+          "date": "2026-08-21",
+          "type": "lt",
+          "title": "LT",
+          "km": 15,
+          "workout": "25-30' @ 4:08-4:14",
+          "note": "About 6-7 km at LT — continuous"
+        },
+        {
+          "day": "Sat",
+          "date": "2026-08-22",
+          "type": "recovery",
+          "title": "Recovery",
+          "km": 7,
+          "pace": "5:15-5:38"
+        },
+        {
+          "day": "Sun",
+          "date": "2026-08-23",
+          "type": "mlr",
+          "title": "MLR",
+          "km": 21,
+          "pace": "4:59 > 4:40"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "label": "Week 4",
+      "block": "Block 1 — Endurance",
+      "start": "2026-08-24",
+      "end": "2026-08-30",
+      "total_km": 91,
+      "book_week": "14 weeks to goal",
+      "book_range": "90-105 km",
+      "headline": "First long run",
+      "note": null,
+      "days": [
+        {
+          "day": "Mon",
+          "date": "2026-08-24",
+          "type": "rest",
+          "title": "Rest / cross-train",
+          "km": 0
+        },
+        {
+          "day": "Tue",
+          "date": "2026-08-25",
+          "type": "ga_speed",
+          "title": "GA + speed",
+          "km": 13,
+          "pace": "4:48-5:06",
+          "workout": "6x10 sec hill sprints + 8x100m strides"
+        },
+        {
+          "day": "Wed",
+          "date": "2026-08-26",
+          "type": "mlr",
+          "title": "MLR",
+          "km": 21,
+          "pace": "4:59 > 4:40",
+          "note": "Commute B"
+        },
+        {
+          "day": "Thu",
+          "date": "2026-08-27",
+          "type": "recovery",
+          "title": "Recovery",
+          "km": 8,
+          "pace": "5:15-5:38"
+        },
+        {
+          "day": "Fri",
+          "date": "2026-08-28",
+          "type": "ga",
+          "title": "GA",
+          "km": 16,
+          "pace": "4:48-5:06"
+        },
+        {
+          "day": "Sat",
+          "date": "2026-08-29",
+          "type": "recovery",
+          "title": "Recovery",
+          "km": 6,
+          "pace": "5:15-5:38"
+        },
+        {
+          "day": "Sun",
+          "date": "2026-08-30",
+          "type": "long",
+          "title": "Long",
+          "km": 27,
+          "pace": "4:56 > 4:34",
+          "note": "Fuel it — practice race breakfast"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "label": "Week 5",
+      "block": "Block 1 — Endurance",
+      "start": "2026-08-31",
+      "end": "2026-09-06",
+      "total_km": 76,
+      "book_week": "12 weeks to goal (recovery)",
+      "book_range": "79-89 km",
+      "headline": "Away week — unconfirmed — recovery week moved here",
+      "note": "Book weeks swapped: the built-in recovery week covers the away risk, and its content is fully portable — no track, no fixed routes. If home, run as written.",
+      "days": [
+        {
+          "day": "Mon",
+          "date": "2026-08-31",
+          "type": "rest",
+          "title": "Rest / cross-train",
+          "km": 0
+        },
+        {
+          "day": "Tue",
+          "date": "2026-09-01",
+          "type": "ga_speed",
+          "title": "GA + speed",
+          "km": 13,
+          "pace": "4:48-5:06",
+          "workout": "10x100m strides",
+          "note": "Anywhere flat"
+        },
+        {
+          "day": "Wed",
+          "date": "2026-09-02",
+          "type": "mlr",
+          "title": "MLR",
+          "km": 18,
+          "pace": "4:59 > 4:42",
+          "note": "By effort if travelling"
+        },
+        {
+          "day": "Thu",
+          "date": "2026-09-03",
+          "type": "recovery",
+          "title": "Recovery",
+          "km": 6,
+          "pace": "5:15-5:38"
+        },
+        {
+          "day": "Fri",
+          "date": "2026-09-04",
+          "type": "ga",
+          "title": "GA",
+          "km": 13,
+          "pace": "4:48-5:06"
+        },
+        {
+          "day": "Sat",
+          "date": "2026-09-05",
+          "type": "recovery",
+          "title": "Recovery",
+          "km": 6,
+          "pace": "5:15-5:38"
+        },
+        {
+          "day": "Sun",
+          "date": "2026-09-06",
+          "type": "mlr",
+          "title": "MLR",
+          "km": 20,
+          "pace": "4:59 > 4:41"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "label": "Week 6",
+      "block": "Block 1 — Endurance",
+      "start": "2026-09-07",
+      "end": "2026-09-13",
+      "total_km": 91,
+      "book_week": "13 weeks to goal",
+      "book_range": "89-103 km",
+      "headline": "The swapped big week — back at book volume",
+      "note": "This is the book 13-weeks-to-goal week, run one week later than printed.",
+      "days": [
+        {
+          "day": "Mon",
+          "date": "2026-09-07",
+          "type": "rest",
+          "title": "Rest / cross-train",
+          "km": 0
+        },
+        {
+          "day": "Tue",
+          "date": "2026-09-08",
+          "type": "lt",
+          "title": "LT",
+          "km": 14,
+          "workout": "30-35' @ 4:06-4:12",
+          "note": "About 7.5-8.5 km at LT — continuous"
+        },
+        {
+          "day": "Wed",
+          "date": "2026-09-09",
+          "type": "mlr",
+          "title": "MLR",
+          "km": 21,
+          "pace": "4:59 > 4:40",
+          "note": "Commute B"
+        },
+        {
+          "day": "Thu",
+          "date": "2026-09-10",
+          "type": "recovery",
+          "title": "Recovery",
+          "km": 8,
+          "pace": "5:15-5:38"
+        },
+        {
+          "day": "Fri",
+          "date": "2026-09-11",
+          "type": "ga",
+          "title": "GA",
+          "km": 14,
+          "pace": "4:48-5:06"
+        },
+        {
+          "day": "Sat",
+          "date": "2026-09-12",
+          "type": "recovery",
+          "title": "Recovery",
+          "km": 6,
+          "pace": "5:15-5:38"
+        },
+        {
+          "day": "Sun",
+          "date": "2026-09-13",
+          "type": "mp",
+          "title": "MP run",
+          "km": 28,
+          "workout": "16 km @ 4:08-4:13",
+          "note": "Book session — even effort, full fuelling"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "label": "Week 7",
+      "block": "Block 2 — LT + Endurance",
+      "start": "2026-09-14",
+      "end": "2026-09-20",
+      "total_km": 100,
+      "book_week": "11 weeks to goal",
+      "book_range": "101-114 km",
+      "headline": null,
+      "note": null,
+      "days": [
+        {
+          "day": "Mon",
+          "date": "2026-09-14",
+          "type": "rest",
+          "title": "Rest / cross-train",
+          "km": 0
+        },
+        {
+          "day": "Tue",
+          "date": "2026-09-15",
+          "type": "lt",
+          "title": "LT",
+          "km": 16,
+          "workout": "30-35' @ 4:06-4:12",
+          "note": "About 8 km at LT"
+        },
+        {
+          "day": "Wed",
+          "date": "2026-09-16",
+          "type": "mlr",
+          "title": "MLR",
+          "km": 21,
+          "pace": "4:59 > 4:40",
+          "note": "Commute B"
+        },
+        {
+          "day": "Thu",
+          "date": "2026-09-17",
+          "type": "recovery",
+          "title": "Recovery",
+          "km": 8,
+          "pace": "5:15-5:38"
+        },
+        {
+          "day": "Fri",
+          "date": "2026-09-18",
+          "type": "ga",
+          "title": "GA",
+          "km": 12,
+          "pace": "4:48-5:06"
+        },
+        {
+          "day": "Sat",
+          "date": "2026-09-19",
+          "type": "ga_speed",
+          "title": "GA + speed",
+          "km": 12,
+          "pace": "4:50-5:06",
+          "workout": "6x10 sec hill sprints + 10x100m strides"
+        },
+        {
+          "day": "Sun",
+          "date": "2026-09-20",
+          "type": "long",
+          "title": "Long",
+          "km": 31,
+          "pace": "4:56 > 4:33",
+          "note": "Fuelled"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "label": "Week 8",
+      "block": "Block 2 — LT + Endurance",
+      "start": "2026-09-21",
+      "end": "2026-09-27",
+      "total_km": 103,
+      "book_week": "10 weeks to goal",
+      "book_range": "98-111 km",
+      "headline": "Biggest LT session of the block",
+      "note": null,
+      "days": [
+        {
+          "day": "Mon",
+          "date": "2026-09-21",
+          "type": "rest",
+          "title": "Rest / cross-train",
+          "km": 0
+        },
+        {
+          "day": "Tue",
+          "date": "2026-09-22",
+          "type": "recovery",
+          "title": "Recovery",
+          "km": 10,
+          "pace": "5:15-5:36"
+        },
+        {
+          "day": "Wed",
+          "date": "2026-09-23",
+          "type": "mlr",
+          "title": "MLR",
+          "km": 23,
+          "pace": "4:59 > 4:39"
+        },
+        {
+          "day": "Thu",
+          "date": "2026-09-24",
+          "type": "recovery",
+          "title": "Recovery",
+          "km": 10,
+          "pace": "5:15-5:38"
+        },
+        {
+          "day": "Fri",
+          "date": "2026-09-25",
+          "type": "lt",
+          "title": "LT",
+          "km": 18,
+          "workout": "35-40' @ 4:03-4:09",
+          "note": "About 9-10 km at LT — Oxford-adjacent effort, controlled"
+        },
+        {
+          "day": "Sat",
+          "date": "2026-09-26",
+          "type": "recovery",
+          "title": "Recovery",
+          "km": 10,
+          "pace": "5:15-5:38"
+        },
+        {
+          "day": "Sun",
+          "date": "2026-09-27",
+          "type": "long",
+          "title": "Long",
+          "km": 32,
+          "pace": "4:56 > 4:33"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "label": "Week 9",
+      "block": "Block 2 — LT + Endurance",
+      "start": "2026-09-28",
+      "end": "2026-10-04",
+      "total_km": 98,
+      "book_week": "9 weeks to goal",
+      "book_range": "95-105 km",
+      "headline": "Key MP benchmark — two weeks before Oxford",
+      "note": "Sunday sets the Oxford race number together with the recent LT work. Optional swap if a 1:21-1:22 half is the ambition: Tuesday becomes 4x2 km @ 3:56-4:02.",
+      "days": [
+        {
+          "day": "Mon",
+          "date": "2026-09-28",
+          "type": "rest",
+          "title": "Rest / cross-train",
+          "km": 0
+        },
+        {
+          "day": "Tue",
+          "date": "2026-09-29",
+          "type": "recovery",
+          "title": "Recovery",
+          "km": 10,
+          "pace": "5:15-5:36",
+          "note": "Or optional 4x2 km @ goal Oxford pace — see week note"
+        },
+        {
+          "day": "Wed",
+          "date": "2026-09-30",
+          "type": "mlr",
+          "title": "MLR",
+          "km": 24,
+          "pace": "4:59 > 4:39"
+        },
+        {
+          "day": "Thu",
+          "date": "2026-10-01",
+          "type": "recovery",
+          "title": "Recovery",
+          "km": 10,
+          "pace": "5:15-5:38"
+        },
+        {
+          "day": "Fri",
+          "date": "2026-10-02",
+          "type": "ga",
+          "title": "GA",
+          "km": 14,
+          "pace": "4:48-5:06"
+        },
+        {
+          "day": "Sat",
+          "date": "2026-10-03",
+          "type": "recovery",
+          "title": "Recovery + speed",
+          "km": 10,
+          "pace": "5:15-5:36",
+          "workout": "6x100m strides"
+        },
+        {
+          "day": "Sun",
+          "date": "2026-10-04",
+          "type": "mp",
+          "title": "MP run",
+          "km": 30,
+          "workout": "19 km @ 4:08-4:13",
+          "note": "Book session — the pre-Oxford benchmark"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "label": "Week 10",
+      "block": "Block 2 — LT + Endurance",
+      "start": "2026-10-05",
+      "end": "2026-10-11",
+      "total_km": 69,
+      "book_week": "8 weeks to goal (recovery)",
+      "book_range": "84-93 km",
+      "headline": "OXFORD HALF — Sunday 11 Oct",
+      "note": "The book recovery week lands here by itself — trimmed at the back end for the race. Window 3:53-4:00/km, target 1:22-1:24, with 1:21 on the table only if September says so. Start conservative, decide at 15 km.",
+      "days": [
+        {
+          "day": "Mon",
+          "date": "2026-10-05",
+          "type": "rest",
+          "title": "Rest",
+          "km": 0
+        },
+        {
+          "day": "Tue",
+          "date": "2026-10-06",
+          "type": "ga",
+          "title": "GA",
+          "km": 13,
+          "pace": "4:50-5:06"
+        },
+        {
+          "day": "Wed",
+          "date": "2026-10-07",
+          "type": "vo2",
+          "title": "VO2",
+          "km": 13,
+          "workout": "7x600 @ 3:54-4:00",
+          "note": "Jog 2-3 min between (book: 50-90% rep time) — track — the sharpener"
+        },
+        {
+          "day": "Thu",
+          "date": "2026-10-08",
+          "type": "recovery",
+          "title": "Recovery",
+          "km": 7,
+          "pace": "5:15-5:34"
+        },
+        {
+          "day": "Fri",
+          "date": "2026-10-09",
+          "type": "recovery",
+          "title": "Recovery + 6x100m",
+          "km": 8,
+          "pace": "5:15-5:34",
+          "note": "Book GA day, trimmed pre-race"
+        },
+        {
+          "day": "Sat",
+          "date": "2026-10-10",
+          "type": "shakeout",
+          "title": "Shakeout + 3x100m",
+          "km": 4,
+          "pace": "5:15-5:30",
+          "note": "No hill sprints this close — kit + shoes check"
+        },
+        {
+          "day": "Sun",
+          "date": "2026-10-11",
+          "type": "race",
+          "title": "RACE — Oxford Half",
+          "km": 24,
+          "pace": "3:53-4:00",
+          "note": "21.1 + 3 km wu/cd — even or negative split. THE GATE."
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "label": "Week 11",
+      "block": "Block 2 — LT + Endurance",
+      "start": "2026-10-12",
+      "end": "2026-10-18",
+      "total_km": 99,
+      "book_week": "7 weeks to goal",
+      "book_range": "103-113 km",
+      "headline": "The 34 km long run — and Oxford resets the goal, once",
+      "note": "THE GATE, set now, once: Oxford at/under 1:21:30 = MP* 4:04-4:09 (2:52). 1:21:31-1:23:30 = hold 4:08-4:13 (2:55). Slower = 4:13-4:18 and defend sub-3. Friday LT only if race soreness is fully gone.",
+      "days": [
+        {
+          "day": "Mon",
+          "date": "2026-10-12",
+          "type": "rest",
+          "title": "Rest",
+          "km": 0,
+          "note": "Post-race — walk, spin, nothing more"
+        },
+        {
+          "day": "Tue",
+          "date": "2026-10-13",
+          "type": "recovery",
+          "title": "Recovery",
+          "km": 8,
+          "pace": "5:15-5:35",
+          "note": "Soft surface"
+        },
+        {
+          "day": "Wed",
+          "date": "2026-10-14",
+          "type": "mlr",
+          "title": "MLR",
+          "km": 21,
+          "pace": "4:59 > 4:41",
+          "note": "Commute B — book 23-24, trimmed post-race"
+        },
+        {
+          "day": "Thu",
+          "date": "2026-10-15",
+          "type": "recovery",
+          "title": "Recovery",
+          "km": 10,
+          "pace": "5:15-5:38"
+        },
+        {
+          "day": "Fri",
+          "date": "2026-10-16",
+          "type": "lt",
+          "title": "LT",
+          "km": 18,
+          "workout": "35-45' @ 4:00-4:06",
+          "note": "About 9-11 km at LT"
+        },
+        {
+          "day": "Sat",
+          "date": "2026-10-17",
+          "type": "recovery",
+          "title": "Recovery",
+          "km": 8,
+          "pace": "5:15-5:38"
+        },
+        {
+          "day": "Sun",
+          "date": "2026-10-18",
+          "type": "long",
+          "title": "Long",
+          "km": 34,
+          "pace": "4:56 > 4:34",
+          "note": "Longest of the block — fuelled, patient early"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "label": "Week 12",
+      "block": "Block 3 — Race Preparation",
+      "start": "2026-10-19",
+      "end": "2026-10-25",
+      "total_km": 95,
+      "book_week": "6 weeks to goal",
+      "book_range": "92-106 km",
+      "headline": "Tune-up race Saturday",
+      "note": "Enter a real race if one exists; solo substitute = 8 km time trial, full warm-up, treated like a race.",
+      "days": [
+        {
+          "day": "Mon",
+          "date": "2026-10-19",
+          "type": "rest",
+          "title": "Rest / cross-train",
+          "km": 0
+        },
+        {
+          "day": "Tue",
+          "date": "2026-10-20",
+          "type": "ga",
+          "title": "GA",
+          "km": 16,
+          "pace": "4:48-5:06"
+        },
+        {
+          "day": "Wed",
+          "date": "2026-10-21",
+          "type": "vo2",
+          "title": "VO2",
+          "km": 16,
+          "workout": "5x600 @ 3:52-3:58",
+          "note": "Jog 2-3 min between — track"
+        },
+        {
+          "day": "Thu",
+          "date": "2026-10-22",
+          "type": "recovery",
+          "title": "Recovery + speed",
+          "km": 10,
+          "pace": "5:15-5:36",
+          "workout": "6x100m strides"
+        },
+        {
+          "day": "Fri",
+          "date": "2026-10-23",
+          "type": "recovery",
+          "title": "Recovery",
+          "km": 8,
+          "pace": "5:15-5:38"
+        },
+        {
+          "day": "Sat",
+          "date": "2026-10-24",
+          "type": "race",
+          "title": "Tune-up race 8-15K",
+          "km": 18,
+          "pace": "Race effort",
+          "note": "Total 16-20 km incl wu/cd — or solo 8 km time trial"
+        },
+        {
+          "day": "Sun",
+          "date": "2026-10-25",
+          "type": "long",
+          "title": "Long",
+          "km": 27,
+          "pace": "4:56 > 4:34",
+          "note": "On tired legs by design"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "label": "Week 13",
+      "block": "Block 3 — Race Preparation",
+      "start": "2026-10-26",
+      "end": "2026-11-01",
+      "total_km": 105,
+      "book_week": "5 weeks to goal",
+      "book_range": "101-114 km",
+      "headline": "PEAK WEEK — Valencia rehearsal: 23 km at MP",
+      "note": "The session the whole plan builds toward. Race shoes, full race fuelling, even effort. Pass criteria: even or negative split, avg HR ≤170, drift <5 bpm.",
+      "days": [
+        {
+          "day": "Mon",
+          "date": "2026-10-26",
+          "type": "rest",
+          "title": "Rest / cross-train",
+          "km": 0
+        },
+        {
+          "day": "Tue",
+          "date": "2026-10-27",
+          "type": "vo2",
+          "title": "VO2",
+          "km": 16,
+          "workout": "6x1 km @ 3:54-4:00",
+          "note": "Jog 2.5-3.5 min between — track"
+        },
+        {
+          "day": "Wed",
+          "date": "2026-10-28",
+          "type": "mlr",
+          "title": "MLR",
+          "km": 24,
+          "pace": "4:59 > 4:39"
+        },
+        {
+          "day": "Thu",
+          "date": "2026-10-29",
+          "type": "recovery",
+          "title": "Recovery",
+          "km": 10,
+          "pace": "5:15-5:38"
+        },
+        {
+          "day": "Fri",
+          "date": "2026-10-30",
+          "type": "ga",
+          "title": "GA",
+          "km": 15,
+          "pace": "4:48-5:06",
+          "note": "Commute A"
+        },
+        {
+          "day": "Sat",
+          "date": "2026-10-31",
+          "type": "recovery",
+          "title": "Recovery",
+          "km": 8,
+          "pace": "5:15-5:38"
+        },
+        {
+          "day": "Sun",
+          "date": "2026-11-01",
+          "type": "mp",
+          "title": "MP run",
+          "km": 32,
+          "workout": "23 km @ MP* 4:04-4:13",
+          "note": "Book session — rehearsal no. 1. Second half of the gate."
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "label": "Week 14",
+      "block": "Block 3 — Race Preparation",
+      "start": "2026-11-02",
+      "end": "2026-11-08",
+      "total_km": 91,
+      "book_week": "4 weeks to goal",
+      "book_range": "89-103 km",
+      "headline": "Tune-up race Saturday",
+      "note": null,
+      "days": [
+        {
+          "day": "Mon",
+          "date": "2026-11-02",
+          "type": "rest",
+          "title": "Rest / cross-train",
+          "km": 0
+        },
+        {
+          "day": "Tue",
+          "date": "2026-11-03",
+          "type": "ga",
+          "title": "GA",
+          "km": 15,
+          "pace": "4:48-5:06",
+          "note": "Commute A"
+        },
+        {
+          "day": "Wed",
+          "date": "2026-11-04",
+          "type": "vo2",
+          "title": "VO2",
+          "km": 15,
+          "workout": "5x600 @ 3:50-3:56",
+          "note": "Jog 2-3 min between — track"
+        },
+        {
+          "day": "Thu",
+          "date": "2026-11-05",
+          "type": "recovery",
+          "title": "Recovery + speed",
+          "km": 10,
+          "pace": "5:15-5:36",
+          "workout": "6x100m strides"
+        },
+        {
+          "day": "Fri",
+          "date": "2026-11-06",
+          "type": "recovery",
+          "title": "Recovery",
+          "km": 8,
+          "pace": "5:15-5:38"
+        },
+        {
+          "day": "Sat",
+          "date": "2026-11-07",
+          "type": "race",
+          "title": "Tune-up race 8-15K",
+          "km": 17,
+          "pace": "Race effort",
+          "note": "Total 16-19 km incl wu/cd — or solo 8 km time trial"
+        },
+        {
+          "day": "Sun",
+          "date": "2026-11-08",
+          "type": "long",
+          "title": "Long",
+          "km": 26,
+          "pace": "4:55 > 4:35"
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "label": "Week 15",
+      "block": "Block 3 — Race Preparation",
+      "start": "2026-11-09",
+      "end": "2026-11-15",
+      "total_km": 103,
+      "book_week": "3 weeks to goal",
+      "book_range": "101-114 km",
+      "headline": "Last big week",
+      "note": "After Sunday, the Valencia number gets decided — not hoped for.",
+      "days": [
+        {
+          "day": "Mon",
+          "date": "2026-11-09",
+          "type": "rest",
+          "title": "Rest / cross-train",
+          "km": 0
+        },
+        {
+          "day": "Tue",
+          "date": "2026-11-10",
+          "type": "recovery",
+          "title": "Recovery",
+          "km": 10,
+          "pace": "5:15-5:36"
+        },
+        {
+          "day": "Wed",
+          "date": "2026-11-11",
+          "type": "vo2",
+          "title": "VO2",
+          "km": 18,
+          "workout": "6x1 km @ 3:52-3:58",
+          "note": "Jog 2.5-3.5 min between — track"
+        },
+        {
+          "day": "Thu",
+          "date": "2026-11-12",
+          "type": "mlr",
+          "title": "MLR",
+          "km": 23,
+          "pace": "4:59 > 4:39"
+        },
+        {
+          "day": "Fri",
+          "date": "2026-11-13",
+          "type": "ga_speed",
+          "title": "GA + speed",
+          "km": 13,
+          "pace": "4:50-5:06",
+          "workout": "8x100m strides"
+        },
+        {
+          "day": "Sat",
+          "date": "2026-11-14",
+          "type": "recovery",
+          "title": "Recovery",
+          "km": 7,
+          "pace": "5:15-5:38"
+        },
+        {
+          "day": "Sun",
+          "date": "2026-11-15",
+          "type": "long",
+          "title": "Long",
+          "km": 32,
+          "pace": "4:56 > 4:33",
+          "note": "Final long run"
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "label": "Week 16",
+      "block": "Block 4 — Taper + Race",
+      "start": "2026-11-16",
+      "end": "2026-11-22",
+      "total_km": 87,
+      "book_week": "2 weeks to goal",
+      "book_range": "84-95 km",
+      "headline": "Tune-up race Saturday",
+      "note": "Taper begins — volume falls, the legs stay awake.",
+      "days": [
+        {
+          "day": "Mon",
+          "date": "2026-11-16",
+          "type": "rest",
+          "title": "Rest / cross-train",
+          "km": 0
+        },
+        {
+          "day": "Tue",
+          "date": "2026-11-17",
+          "type": "ga_speed",
+          "title": "GA + speed",
+          "km": 12,
+          "pace": "4:50-5:06",
+          "workout": "6x10 sec hill sprints + 12x100m strides"
+        },
+        {
+          "day": "Wed",
+          "date": "2026-11-18",
+          "type": "ga",
+          "title": "GA",
+          "km": 15,
+          "pace": "4:48-5:06",
+          "note": "Commute A"
+        },
+        {
+          "day": "Thu",
+          "date": "2026-11-19",
+          "type": "recovery",
+          "title": "Recovery + speed",
+          "km": 10,
+          "pace": "5:15-5:36",
+          "workout": "6x100m strides"
+        },
+        {
+          "day": "Fri",
+          "date": "2026-11-20",
+          "type": "recovery",
+          "title": "Recovery",
+          "km": 7,
+          "pace": "5:15-5:38"
+        },
+        {
+          "day": "Sat",
+          "date": "2026-11-21",
+          "type": "race",
+          "title": "Tune-up race 8-10K",
+          "km": 16,
+          "pace": "Race effort",
+          "note": "Total 15-17 km incl wu/cd — or parkrun + extension at 10K effort"
+        },
+        {
+          "day": "Sun",
+          "date": "2026-11-22",
+          "type": "long",
+          "title": "Long",
+          "km": 27,
+          "pace": "4:55 > 4:35"
+        }
+      ]
+    },
+    {
+      "id": 17,
+      "label": "Week 17",
+      "block": "Block 4 — Taper + Race",
+      "start": "2026-11-23",
+      "end": "2026-11-29",
+      "total_km": 67,
+      "book_week": "1 week to goal",
+      "book_range": "64-74 km",
+      "headline": "Sleep is training now",
+      "note": null,
+      "days": [
+        {
+          "day": "Mon",
+          "date": "2026-11-23",
+          "type": "rest",
+          "title": "Rest",
+          "km": 0
+        },
+        {
+          "day": "Tue",
+          "date": "2026-11-24",
+          "type": "recovery",
+          "title": "Recovery + speed",
+          "km": 10,
+          "pace": "5:15-5:36",
+          "workout": "8x100m strides"
+        },
+        {
+          "day": "Wed",
+          "date": "2026-11-25",
+          "type": "recovery",
+          "title": "Recovery",
+          "km": 7,
+          "pace": "5:15-5:36"
+        },
+        {
+          "day": "Thu",
+          "date": "2026-11-26",
+          "type": "vo2",
+          "title": "VO2",
+          "km": 13,
+          "workout": "5x1 km @ 3:52-3:58",
+          "note": "Jog 2.5-3.5 min between — controlled, not a test"
+        },
+        {
+          "day": "Fri",
+          "date": "2026-11-27",
+          "type": "recovery",
+          "title": "Recovery",
+          "km": 8,
+          "pace": "5:15-5:36"
+        },
+        {
+          "day": "Sat",
+          "date": "2026-11-28",
+          "type": "recovery",
+          "title": "Recovery + speed",
+          "km": 9,
+          "pace": "5:15-5:36",
+          "workout": "8x100m strides"
+        },
+        {
+          "day": "Sun",
+          "date": "2026-11-29",
+          "type": "mlr",
+          "title": "MLR",
+          "km": 20,
+          "pace": "4:59 > 4:43",
+          "note": "Gentle"
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "label": "Week 18",
+      "block": "Block 4 — Taper + Race",
+      "start": "2026-11-30",
+      "end": "2026-12-06",
+      "total_km": 80.2,
+      "book_week": "Race week",
+      "book_range": "34-43 km before the race",
+      "headline": "VALENCIA MARATHON — Sunday 6 Dec",
+      "note": "MP* window 4:04-4:18 by the gate: the exact number comes from Oxford + weeks 13 and 15, chosen two days out — not on the start line.",
+      "days": [
+        {
+          "day": "Mon",
+          "date": "2026-11-30",
+          "type": "rest",
+          "title": "Rest",
+          "km": 0
+        },
+        {
+          "day": "Tue",
+          "date": "2026-12-01",
+          "type": "recovery",
+          "title": "Recovery",
+          "km": 10,
+          "pace": "5:15-5:34"
+        },
+        {
+          "day": "Wed",
+          "date": "2026-12-02",
+          "type": "mp",
+          "title": "Dress rehearsal",
+          "km": 11,
+          "workout": "3 km @ MP*",
+          "note": "Full race kit + shoes"
+        },
+        {
+          "day": "Thu",
+          "date": "2026-12-03",
+          "type": "recovery",
+          "title": "Recovery",
+          "km": 6,
+          "pace": "5:16-5:36"
+        },
+        {
+          "day": "Fri",
+          "date": "2026-12-04",
+          "type": "recovery",
+          "title": "Recovery + speed",
+          "km": 7,
+          "pace": "5:15-5:34",
+          "workout": "6x100m strides"
+        },
+        {
+          "day": "Sat",
+          "date": "2026-12-05",
+          "type": "recovery",
+          "title": "Recovery",
+          "km": 4,
+          "pace": "5:15-5:30",
+          "note": "Legs loose, mind quiet"
+        },
+        {
+          "day": "Sun",
+          "date": "2026-12-06",
+          "type": "race",
+          "title": "RACE — Valencia Marathon",
+          "km": 42.2,
+          "pace": "MP* per gate",
+          "note": "Even first half, decide at 30 km — the floor (sub-3, 4:15/km) is defended before the ceiling is chased"
+        }
+      ]
+    }
+  ]
+}
