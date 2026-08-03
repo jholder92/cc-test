@@ -14,6 +14,7 @@ const state = {
   currentWeekIndex: 0,
   activeView: "today",
   noteTargetISO: null,
+  expandedDate: null, // which day-row's breakdown is open in Week view
 };
 
 const $ = (id) => document.getElementById(id);
@@ -48,22 +49,33 @@ function dayOfMonth(iso) {
   return parseISO(iso).getDate();
 }
 
+function round1(n) {
+  return Math.round(n * 10) / 10;
+}
+
+function formatKm(km) {
+  return String(round1(km));
+}
+
+function escapeHTML(s) {
+  const d = document.createElement("div");
+  d.textContent = s;
+  return d.innerHTML;
+}
+
 // ---------- localStorage ----------
 
 function isDone(iso) {
   return localStorage.getItem(STORE_PREFIX + "done:" + iso) === "1";
 }
-
 function setDone(iso, done) {
   const key = STORE_PREFIX + "done:" + iso;
   if (done) localStorage.setItem(key, "1");
   else localStorage.removeItem(key);
 }
-
 function getNote(iso) {
   return localStorage.getItem(STORE_PREFIX + "note:" + iso) || "";
 }
-
 function setNote(iso, text) {
   const key = STORE_PREFIX + "note:" + iso;
   if (text && text.trim()) localStorage.setItem(key, text);
@@ -110,15 +122,144 @@ function roleFor(type) {
   const st = state.plan.session_types[type];
   return (st && st.color_role) || "neutral";
 }
-
 function labelFor(type) {
   const st = state.plan.session_types[type];
   return (st && st.label) || type;
 }
-
 function setRoleClass(el, role) {
   el.className = el.className.replace(ROLE_CLASS_RE, "").trim();
   el.classList.add("role-" + role);
+}
+
+// ---------- workout breakdown parser ----------
+// The JSON has no separate structured-intervals field — only a `workout` string,
+// a `note`, and the day's total km. Everything below is derived from those three
+// things. Anything not literally stated in the plan (e.g. how a leftover distance
+// splits between warm-up and cool-down) is left unsplit and flagged as such.
+
+function parseWorkout(day, plan) {
+  if (!day.workout) return null;
+  const text = day.workout.trim();
+  const note = day.note || "";
+
+  let m;
+
+  // Hill sprints + strides combo
+  if ((m = text.match(/^(\d+)(?:-(\d+))?x(\d+)\s*sec\s*hill sprints\s*\+\s*(\d+)x(\d+)m\s*strides$/i))) {
+    const [, lo, hi, sec, strideReps, strideDist] = m;
+    const hillReps = hi ? `${lo}-${hi}` : lo;
+    return {
+      kind: "accessory",
+      steps: [
+        { tag: "Hills", body: `${hillReps} × ${sec} sec @ max effort`, note: plan.paces.hills.note },
+        { tag: "Strides", body: `${strideReps} × ${strideDist}m @ ${plan.paces.strides.range}`, note: plan.paces.strides.note },
+      ],
+      accessoryKm: (Number(hi || lo) * 0.05) + (Number(strideReps) * Number(strideDist)) / 1000,
+    };
+  }
+
+  // Strides only
+  if ((m = text.match(/^(\d+)x(\d+)m\s*strides$/i))) {
+    const [, reps, dist] = m;
+    return {
+      kind: "accessory",
+      steps: [{ tag: "Strides", body: `${reps} × ${dist}m @ ${plan.paces.strides.range}`, note: plan.paces.strides.note }],
+      accessoryKm: (Number(reps) * Number(dist)) / 1000,
+    };
+  }
+
+  // Reps x km @ pace, e.g. "6x1 km @ 3:54-4:00"
+  if ((m = text.match(/^(\d+)x([\d.]+)\s*km\s*@\s*([\d:]+-[\d:]+)$/i))) {
+    const [, reps, dist, pace] = m;
+    return buildIntervalBreakdown(day, plan, note, {
+      reps: Number(reps),
+      distanceLabel: `${dist} km`,
+      distanceKm: Number(dist),
+      pace,
+    });
+  }
+
+  // Reps x meters @ pace, e.g. "5x600 @ 3:52-3:58" (track intervals, meters implied)
+  if ((m = text.match(/^(\d+)x(\d+)\s*@\s*([\d:]+-[\d:]+)$/i))) {
+    const [, reps, meters, pace] = m;
+    return buildIntervalBreakdown(day, plan, note, {
+      reps: Number(reps),
+      distanceLabel: `${meters}m`,
+      distanceKm: Number(meters) / 1000,
+      pace,
+    });
+  }
+
+  // Continuous distance @ pace, e.g. "23 km @ MP* 4:04-4:13" or "3 km @ MP*"
+  if ((m = text.match(/^([\d.]+)\s*km\s*@\s*(MP\*?\s*)?([\d:]+-[\d:]+)?$/i))) {
+    const [, dist, mpFlag, pace] = m;
+    const paceLabel = pace || (mpFlag ? plan.paces.mp.range : "");
+    const distanceKm = Number(dist);
+    const remainder = Math.max(0, round1(day.km - distanceKm));
+    return {
+      kind: "continuous-distance",
+      steps: [
+        remainder > 0 ? { tag: "Easy", body: `≈ ${remainder} km easy (warm-up + cool-down, not split in the plan)` } : null,
+        { tag: "Main set", body: `${dist} km continuous @ ${paceLabel}${mpFlag ? " (MP*)" : ""}` },
+      ].filter(Boolean),
+      caveat: remainder > 0 ? "Warm-up/cool-down split is your call — the plan gives the total only." : null,
+    };
+  }
+
+  // Continuous duration @ pace, e.g. "20-25' @ 4:10-4:16"
+  if ((m = text.match(/^(\d+)-(\d+)'\s*@\s*([\d:]+-[\d:]+)$/i))) {
+    const [, lo, hi, pace] = m;
+    const approx = note.match(/about\s+([\d.]+)(?:-([\d.]+))?\s*km/i);
+    const approxLabel = approx ? `≈ ${approx[1]}${approx[2] ? "-" + approx[2] : ""} km at this effort` : null;
+    return {
+      kind: "continuous-duration",
+      steps: [
+        { tag: "Main set", body: `${lo}-${hi} min continuous @ ${pace}`, note: approxLabel },
+      ],
+      caveat: `Total session is ${formatKm(day.km)} km including warm-up/cool-down — the plan doesn't split out how much is tempo.`,
+    };
+  }
+
+  return { kind: "raw", steps: [{ tag: "Workout", body: text }] };
+}
+
+function buildIntervalBreakdown(day, plan, note, { reps, distanceLabel, distanceKm, pace }) {
+  const recoveryMatch = note.match(/Jog[^—]*/i);
+  const recovery = recoveryMatch ? recoveryMatch[0].trim().replace(/[.,;]+$/, "") : null;
+
+  const mainKm = reps * distanceKm;
+  const remainder = Math.max(0, round1(day.km - mainKm));
+
+  const steps = [];
+  if (remainder > 0) {
+    steps.push({ tag: "Easy", body: `≈ ${remainder} km easy (warm-up + cool-down, not split in the plan)` });
+  }
+  steps.push({
+    tag: "Main set",
+    body: `${reps} × ${distanceLabel} @ ${pace}`,
+    note: recovery ? `Recovery: ${recovery}` : null,
+  });
+
+  return {
+    kind: "intervals",
+    steps,
+    caveat: remainder > 0 ? "Warm-up/cool-down split is your call — the plan gives the total only." : null,
+  };
+}
+
+function renderBreakdownHTML(parsed) {
+  if (!parsed) return "";
+  const stepsHTML = parsed.steps
+    .map(
+      (s) => `
+      <div class="breakdown-step">
+        <span class="step-tag">${escapeHTML(s.tag)}</span>
+        <span class="step-body">${s.body}${s.note ? `<span class="step-note">${escapeHTML(s.note)}</span>` : ""}</span>
+      </div>`
+    )
+    .join("");
+  const caveat = parsed.caveat ? `<div class="breakdown-caveat">${escapeHTML(parsed.caveat)}</div>` : "";
+  return stepsHTML + caveat;
 }
 
 // ---------- rendering: Today ----------
@@ -128,7 +269,7 @@ function renderToday() {
   if (!entry) return;
 
   const isNearestFallback = entry.date !== state.todayISO;
-  $("today-weekday").textContent = isNearestFallback ? "Nearest session" : weekdayName(state.todayISO);
+  $("today-weekday").textContent = isNearestFallback ? "Nearest" : weekdayName(state.todayISO);
   $("today-date").textContent = isNearestFallback
     ? `${prettyDate(entry.date)} — today is ${prettyDate(state.todayISO)}`
     : prettyDate(state.todayISO);
@@ -136,40 +277,41 @@ function renderToday() {
   const day = entry.day;
   const role = roleFor(day.type);
   const hero = $("today-hero");
-  setRoleClass(hero, role);
+  hero.className = "hero";
   hero.classList.toggle("is-weighted", WEIGHTED_TYPES.has(day.type));
   hero.classList.toggle("is-quiet", QUIET_TYPES.has(day.type));
   hero.classList.toggle("is-done", isDone(entry.date));
 
-  const pill = $("today-pill");
-  setRoleClass(pill, role);
-  pill.textContent = labelFor(day.type);
+  const dot = $("today-dot");
+  setRoleClass(dot, role);
+  const typeLabel = $("today-type-label");
+  setRoleClass(typeLabel, role);
+  typeLabel.textContent = labelFor(day.type);
 
   $("today-title").textContent = day.title;
 
   const kmEl = $("today-km");
-  if (day.km) {
-    kmEl.innerHTML = `${formatKm(day.km)}<span>km</span>`;
-  } else {
-    kmEl.textContent = "—";
-  }
+  kmEl.innerHTML = day.km ? `${formatKm(day.km)}<span>km</span>` : "—";
 
-  const paceEl = $("today-pace");
+  const paceStat = $("today-pace-stat");
   if (day.pace) {
-    paceEl.innerHTML = `<span class="label">Pace</span>${escapeHTML(day.pace)}`;
-    paceEl.hidden = false;
+    $("today-pace").textContent = day.pace;
+    paceStat.hidden = false;
   } else {
-    paceEl.innerHTML = "";
-    paceEl.hidden = true;
+    paceStat.hidden = true;
   }
 
-  const workoutEl = $("today-workout");
-  if (day.workout) {
-    workoutEl.textContent = day.workout;
-    workoutEl.hidden = false;
+  const workoutBox = $("today-workout-box");
+  const parsed = parseWorkout(day, state.plan);
+  if (parsed) {
+    workoutBox.hidden = false;
+    $("today-workout").textContent = day.workout;
+    $("today-breakdown").innerHTML = renderBreakdownHTML(parsed);
   } else {
-    workoutEl.hidden = true;
+    workoutBox.hidden = true;
   }
+  $("today-breakdown").hidden = true;
+  $("today-workout-toggle").setAttribute("aria-expanded", "false");
 
   const noteEl = $("today-note");
   if (day.note) {
@@ -180,6 +322,7 @@ function renderToday() {
   }
 
   $("today-done-label").textContent = isDone(entry.date) ? "Done" : "Mark done";
+  $("today-done-box").textContent = isDone(entry.date) ? "×" : "";
 
   const savedNote = getNote(entry.date);
   const noteDisplay = $("today-note-display");
@@ -199,25 +342,13 @@ function renderToday() {
   state.currentWeekIndex = entry.weekIndex;
 }
 
-function formatKm(km) {
-  return Number.isInteger(km) ? String(km) : String(km);
-}
-
-function escapeHTML(s) {
-  const d = document.createElement("div");
-  d.textContent = s;
-  return d.innerHTML;
-}
-
 function renderTomorrow(fromISO) {
   const nextISO = shiftISO(fromISO, 1);
   const entry = findEntry(nextISO);
-  const row = $("tomorrow-row");
 
   if (!entry) {
     $("tomorrow-day").textContent = "—";
-    $("tomorrow-pill").textContent = "";
-    $("tomorrow-pill").className = "pill";
+    $("tomorrow-dot").className = "dot";
     $("tomorrow-title").textContent = "Outside plan range";
     $("tomorrow-pace").textContent = "";
     $("tomorrow-km").textContent = "";
@@ -227,13 +358,10 @@ function renderTomorrow(fromISO) {
   const day = entry.day;
   const role = roleFor(day.type);
   $("tomorrow-day").textContent = day.day;
-  const pill = $("tomorrow-pill");
-  setRoleClass(pill, role);
-  pill.textContent = labelFor(day.type);
+  setRoleClass($("tomorrow-dot"), role);
   $("tomorrow-title").textContent = day.title;
   $("tomorrow-pace").textContent = day.workout || day.pace || "";
   $("tomorrow-km").textContent = day.km ? `${formatKm(day.km)} km` : "";
-  row.classList.toggle("is-done", isDone(entry.date));
 }
 
 function shiftISO(iso, deltaDays) {
@@ -250,17 +378,13 @@ function renderWeekRemaining(entry) {
   const remaining = week.days
     .filter((d) => d.date > entry.date)
     .reduce((sum, d) => sum + (d.km || 0), 0);
-  $("week-remaining-km").textContent = formatKm(round1(remaining));
+  $("week-remaining-km").textContent = formatKm(remaining);
   $("week-total-km").textContent = formatKm(week.total_km);
-}
-
-function round1(n) {
-  return Math.round(n * 10) / 10;
 }
 
 // ---------- rendering: Week ----------
 
-function renderWeek(direction) {
+function renderWeek() {
   const week = state.plan.weeks[state.currentWeekIndex];
   if (!week) return;
 
@@ -279,48 +403,56 @@ function renderWeek(direction) {
 
   const list = $("week-days");
   list.innerHTML = "";
-  week.days.forEach((day) => {
-    list.appendChild(buildDayRow(day));
-  });
+  week.days.forEach((day) => list.appendChild(buildDayRow(day)));
 
   $("week-prev").disabled = state.currentWeekIndex <= 0;
   $("week-next").disabled = state.currentWeekIndex >= state.plan.weeks.length - 1;
-
-  const track = $("week-track");
-  if (direction) {
-    track.classList.remove("sliding-left", "sliding-right");
-    // force reflow so the animation restarts
-    void track.offsetWidth;
-    track.classList.add(direction > 0 ? "sliding-left" : "sliding-right");
-  }
 }
 
 function buildDayRow(day) {
   const role = roleFor(day.type);
-  const row = document.createElement("div");
-  row.className = "day-row role-" + role;
-  row.dataset.date = day.date;
-  if (QUIET_TYPES.has(day.type)) row.classList.add("is-quiet");
-  if (isDone(day.date)) row.classList.add("is-done");
-  if (day.date === state.highlightISO) row.classList.add("is-today");
+  const wrap = document.createElement("div");
+  wrap.className = "day-row role-" + role;
+  wrap.dataset.date = day.date;
+  if (QUIET_TYPES.has(day.type)) wrap.classList.add("is-quiet");
+  if (WEIGHTED_TYPES.has(day.type)) wrap.classList.add("is-weighted");
+  if (isDone(day.date)) wrap.classList.add("is-done");
+  if (day.date === state.highlightISO) wrap.classList.add("is-today");
 
   const note = getNote(day.date);
   const sub = day.workout || day.pace || "";
+  const parsed = parseWorkout(day, state.plan);
+  const isExpanded = state.expandedDate === day.date;
 
-  row.innerHTML = `
+  wrap.innerHTML = `
     <div class="day-col-date">
       <div class="dow">${day.day}</div>
       <div class="dom num">${dayOfMonth(day.date)}</div>
     </div>
     <div class="day-col-main">
-      <p class="title">${escapeHTML(day.title)}${note ? " ✎" : ""}</p>
-      <p class="sub">${escapeHTML(sub)}</p>
+      <span class="dot"></span>
+      <span class="title">${escapeHTML(day.title)}${note ? " ✎" : ""}</span>
+      <span class="sub">${escapeHTML(sub)}</span>
     </div>
     <div class="day-col-km num">${day.km ? formatKm(day.km) : "—"}<span>km</span></div>
+    <button class="day-expand-btn" aria-expanded="${isExpanded}" ${parsed ? "" : "disabled"} aria-label="Show workout breakdown">+</button>
+    <div class="day-row-detail" ${isExpanded && parsed ? "" : "hidden"}>${parsed ? renderBreakdownHTML(parsed) : ""}</div>
   `;
 
-  attachPressHandlers(row, day.date);
-  return row;
+  const dot = wrap.querySelector(".day-col-main .dot");
+  setRoleClass(dot, role);
+
+  const expandBtn = wrap.querySelector(".day-expand-btn");
+  if (parsed) {
+    expandBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      state.expandedDate = isExpanded ? null : day.date;
+      renderWeek();
+    });
+  }
+
+  attachPressHandlers(wrap, day.date);
+  return wrap;
 }
 
 function attachPressHandlers(row, iso) {
@@ -336,6 +468,7 @@ function attachPressHandlers(row, iso) {
   };
 
   row.addEventListener("pointerdown", (e) => {
+    if (e.target.closest("button, .day-row-detail")) return;
     longPressed = false;
     startX = e.clientX;
     startY = e.clientY;
@@ -347,16 +480,13 @@ function attachPressHandlers(row, iso) {
 
   row.addEventListener("pointermove", (e) => {
     if (!pressTimer) return;
-    if (Math.abs(e.clientX - startX) > 10 || Math.abs(e.clientY - startY) > 10) {
-      clearTimer();
-    }
+    if (Math.abs(e.clientX - startX) > 10 || Math.abs(e.clientY - startY) > 10) clearTimer();
   });
 
-  row.addEventListener("pointerup", () => {
+  row.addEventListener("pointerup", (e) => {
     clearTimer();
-    if (!longPressed) {
-      toggleDone(iso);
-    }
+    if (e.target.closest("button, .day-row-detail")) return;
+    if (!longPressed) toggleDone(iso);
   });
 
   row.addEventListener("pointercancel", clearTimer);
@@ -417,7 +547,7 @@ function renderReference() {
   const gate = state.plan.gate;
   const gateEl = $("ref-gate");
   gateEl.innerHTML = `
-    <p class="pace-note" style="margin-bottom:10px">${escapeHTML(gate.note)}</p>
+    <p class="gate-note">${escapeHTML(gate.note)}</p>
     ${gate.bands.map((b) => `
       <div class="gate-band">
         <div class="result num">${escapeHTML(b.result)}</div>
@@ -447,10 +577,10 @@ function toggleDone(iso) {
 
 function openNoteEditorFor(iso) {
   state.noteTargetISO = iso;
-  const editor = $("today-note-editor");
-  if (state.activeView === "today" && iso === (findEntry(state.highlightISO) || {}).date) {
+  const featured = findEntry(state.highlightISO) || {};
+  if (state.activeView === "today" && iso === featured.date) {
     $("today-note-input").value = getNote(iso);
-    editor.hidden = false;
+    $("today-note-editor").hidden = false;
     $("today-note-input").focus();
   } else {
     const existing = getNote(iso);
@@ -472,7 +602,7 @@ function switchView(name) {
   document.querySelectorAll(".view").forEach((v) => {
     v.hidden = v.dataset.view !== name;
   });
-  document.querySelectorAll("#tabbar button").forEach((b) => {
+  document.querySelectorAll("#pillnav button").forEach((b) => {
     b.setAttribute("aria-current", String(b.dataset.target === name));
   });
   if (name === "week") renderWeek();
@@ -481,19 +611,27 @@ function switchView(name) {
 }
 
 function wireEvents() {
-  $("tabbar").addEventListener("click", (e) => {
+  $("pillnav").addEventListener("click", (e) => {
     const btn = e.target.closest("button[data-target]");
     if (btn) switchView(btn.dataset.target);
   });
 
   $("today-hero").addEventListener("click", (e) => {
-    if (e.target.closest("button, textarea, .note-editor")) return;
+    if (e.target.closest("button, textarea, .workout-box")) return;
     toggleDone(state.noteTargetISO);
   });
 
   $("today-done-toggle").addEventListener("click", (e) => {
     e.stopPropagation();
     toggleDone(state.noteTargetISO);
+  });
+
+  $("today-workout-toggle").addEventListener("click", (e) => {
+    e.stopPropagation();
+    const btn = e.currentTarget;
+    const expanded = btn.getAttribute("aria-expanded") === "true";
+    btn.setAttribute("aria-expanded", String(!expanded));
+    $("today-breakdown").hidden = expanded;
   });
 
   $("today-note-btn").addEventListener("click", (e) => {
@@ -518,13 +656,15 @@ function wireEvents() {
   $("week-prev").addEventListener("click", () => {
     if (state.currentWeekIndex > 0) {
       state.currentWeekIndex--;
-      renderWeek(-1);
+      state.expandedDate = null;
+      renderWeek();
     }
   });
   $("week-next").addEventListener("click", () => {
     if (state.currentWeekIndex < state.plan.weeks.length - 1) {
       state.currentWeekIndex++;
-      renderWeek(1);
+      state.expandedDate = null;
+      renderWeek();
     }
   });
 
@@ -532,7 +672,7 @@ function wireEvents() {
   let swipeStartX = null;
   let swipeStartY = null;
   track.addEventListener("pointerdown", (e) => {
-    if (e.target.closest(".day-row")) return; // let row press-handlers own it
+    if (e.target.closest(".day-row")) return;
     swipeStartX = e.clientX;
     swipeStartY = e.clientY;
   });
@@ -559,7 +699,7 @@ function renderCountdown() {
   const raceISO = state.plan.meta.race.date;
   const d = daysBetween(state.todayISO, raceISO);
   const el = $("race-countdown");
-  if (d > 0) el.innerHTML = `<strong>${d}</strong>d to Valencia`;
+  if (d > 0) el.innerHTML = `<strong>${d}</strong> days<br>to Valencia`;
   else if (d === 0) el.innerHTML = `<strong>Race day</strong>`;
   else el.innerHTML = `<strong>Done</strong>`;
 }

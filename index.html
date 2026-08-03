@@ -6,8 +6,8 @@
 <title>Valencia 2026</title>
 <meta name="description" content="Today's workout — Valencia Marathon 2026 training plan.">
 
-<meta name="theme-color" content="#0d1014" media="(prefers-color-scheme: dark)">
-<meta name="theme-color" content="#eef0f1" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#efeee7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#131210" media="(prefers-color-scheme: dark)">
 
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icons/favicon-32.png" sizes="32x32">
@@ -24,42 +24,66 @@
 <div id="app">
 
   <header class="topbar">
-    <span class="brand">Valencia 2026</span>
-    <span class="race-countdown" id="race-countdown"></span>
+    <div class="brand-row">
+      <div class="brand display display-dots">Valencia<br>2026</div>
+      <div class="race-countdown" id="race-countdown"></div>
+    </div>
   </header>
+
+  <nav class="pillnav" id="pillnav">
+    <button data-target="today" aria-current="true">Today</button>
+    <button data-target="week" aria-current="false">Week</button>
+    <button data-target="block" aria-current="false">Block</button>
+    <button data-target="reference" aria-current="false">Reference</button>
+  </nav>
 
   <p class="offline-banner" id="offline-banner">Offline — showing cached plan</p>
 
   <!-- TODAY -->
   <main class="view" id="view-today" data-view="today">
-    <div class="today-header">
-      <div>
-        <div class="weekday" id="today-weekday">—</div>
-        <div class="date num" id="today-date">—</div>
-      </div>
+    <div class="today-head">
+      <div class="weekday display" id="today-weekday">—</div>
+      <div class="date num" id="today-date">—</div>
     </div>
+    <hr class="rule-double">
 
-    <section class="hero-card" id="today-hero">
-      <div class="hero-top">
-        <span class="pill" id="today-pill">—</span>
-        <button class="icon-btn" id="today-note-btn" aria-label="Add note" title="Add note">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-        </button>
+    <section class="hero" id="today-hero">
+      <div class="hero-type-row">
+        <span class="dot" id="today-dot"></span>
+        <span class="type-label" id="today-type-label">—</span>
       </div>
       <h1 class="hero-title" id="today-title">—</h1>
 
-      <div class="hero-metrics">
-        <div class="hero-km num" id="today-km">—</div>
-        <div class="hero-pace num" id="today-pace"></div>
+      <div class="hero-stats">
+        <div class="stat">
+          <span class="stat-label">Distance</span>
+          <span class="stat-value num" id="today-km">—</span>
+        </div>
+        <div class="stat pace" id="today-pace-stat" hidden>
+          <span class="stat-label">Pace</span>
+          <span class="stat-value num" id="today-pace">—</span>
+        </div>
       </div>
 
-      <div class="hero-workout num" id="today-workout" hidden></div>
+      <div class="workout-box" id="today-workout-box" hidden>
+        <div class="workout-row">
+          <span class="workout-text num" id="today-workout">—</span>
+          <button class="plus-btn" id="today-workout-toggle" aria-expanded="false" aria-label="Show workout breakdown">
+            <span class="glyph">+</span>
+          </button>
+        </div>
+        <div class="breakdown" id="today-breakdown" hidden></div>
+      </div>
+
       <p class="hero-note" id="today-note"></p>
 
-      <button class="completion-mark" id="today-done-toggle">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-        <span id="today-done-label">Mark done</span>
-      </button>
+      <div>
+        <button class="done-toggle" id="today-done-toggle">
+          <span class="box" id="today-done-box"></span>
+          <span id="today-done-label">Mark done</span>
+        </button>
+        <button class="note-btn" id="today-note-btn">Note</button>
+      </div>
 
       <div class="note-text" id="today-note-display" hidden></div>
 
@@ -72,12 +96,12 @@
       </div>
     </section>
 
-    <div class="stack-section">
+    <div class="stack-section" style="border-top:1px solid var(--line-soft)">
       <h2>Tomorrow</h2>
       <div class="mini-row" id="tomorrow-row">
         <span class="mini-label" id="tomorrow-day">—</span>
         <div class="mini-body">
-          <span class="pill" id="tomorrow-pill">—</span>
+          <span class="dot" id="tomorrow-dot"></span>
           <span class="mini-title" id="tomorrow-title"></span>
           <span class="mini-pace num" id="tomorrow-pace"></span>
         </div>
@@ -85,7 +109,7 @@
       </div>
     </div>
 
-    <div class="stack-section">
+    <div class="stack-section" style="border-top:1px solid var(--line-soft)">
       <h2>This week</h2>
       <div class="week-remaining">
         <span>Remaining</span>
@@ -97,16 +121,12 @@
   <!-- WEEK -->
   <main class="view" id="view-week" data-view="week" hidden>
     <div class="week-nav">
-      <button class="nav-btn" id="week-prev" aria-label="Previous week">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-      </button>
+      <button class="nav-btn" id="week-prev" aria-label="Previous week">&larr;</button>
       <div class="week-heading">
         <div class="label" id="week-label">—</div>
         <div class="block" id="week-block">—</div>
       </div>
-      <button class="nav-btn" id="week-next" aria-label="Next week">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
-      </button>
+      <button class="nav-btn" id="week-next" aria-label="Next week">&rarr;</button>
     </div>
     <div class="week-stats">
       <span><strong id="week-stat-km">—</strong> total</span>
@@ -114,6 +134,12 @@
     </div>
     <p class="week-headline" id="week-headline" hidden></p>
 
+    <div class="col-headers">
+      <span>Day</span>
+      <span>Session</span>
+      <span>Km</span>
+      <span></span>
+    </div>
     <div class="week-track" id="week-track">
       <div class="day-list" id="week-days"></div>
     </div>
@@ -121,54 +147,37 @@
 
   <!-- BLOCK -->
   <main class="view" id="view-block" data-view="block" hidden>
-    <div class="today-header" style="margin-top:10px">
-      <div class="weekday" style="font-size:18px">Full block</div>
+    <div class="today-head" style="margin-top:6px">
+      <div class="weekday display" style="font-size:26px">Full block</div>
     </div>
+    <hr class="rule-double">
     <div class="block-list" id="block-list"></div>
   </main>
 
   <!-- REFERENCE -->
   <main class="view" id="view-reference" data-view="reference" hidden>
-    <div class="today-header" style="margin-top:10px">
-      <div class="weekday" style="font-size:18px">Reference</div>
+    <div class="today-head" style="margin-top:6px">
+      <div class="weekday display" style="font-size:26px">Reference</div>
     </div>
+    <hr class="rule-double">
 
-    <section class="ref-card">
+    <section class="ref-section">
       <h2>Paces</h2>
       <div id="ref-paces"></div>
     </section>
 
-    <section class="ref-card">
+    <section class="ref-section">
       <h2>The Oxford gate</h2>
       <div id="ref-gate"></div>
     </section>
 
-    <section class="ref-card">
+    <section class="ref-section">
       <h2>Rules</h2>
       <ol class="rules-list" id="ref-rules"></ol>
     </section>
   </main>
 
 </div>
-
-<nav class="tabbar" id="tabbar">
-  <button data-target="today" aria-current="true">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>
-    Today
-  </button>
-  <button data-target="week" aria-current="false">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
-    Week
-  </button>
-  <button data-target="block" aria-current="false">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V10M11 19V4M18 19v-6"/></svg>
-    Block
-  </button>
-  <button data-target="reference" aria-current="false">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/></svg>
-    Reference
-  </button>
-</nav>
 
 <script type="module" src="app.js"></script>
 </body>
